@@ -13,6 +13,7 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(ui::UIPlugin)
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .run();
