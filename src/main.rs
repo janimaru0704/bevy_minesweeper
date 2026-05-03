@@ -20,10 +20,7 @@ fn main() {
 }
 
 // 初期化
-fn setup(
-    mut commands: Commands,
-    mut clear_color: ResMut<ClearColor>
-) {
+fn setup(mut commands: Commands, mut clear_color: ResMut<ClearColor>) {
     commands.spawn(Camera2d);
     clear_color.0 = Color::BLACK;
 }
