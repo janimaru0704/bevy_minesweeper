@@ -1,4 +1,6 @@
-use bevy::prelude::*;
+use bevy::{color::palettes::tailwind, prelude::*};
+
+use crate::constants;
 
 pub struct UIPlugin;
 
@@ -11,6 +13,14 @@ impl Plugin for UIPlugin {
 // 画面ノードのマーカー
 #[derive(Component)]
 struct UINode;
+
+// 時間経過表示のマーカー
+#[derive(Component)]
+struct TimerText;
+
+// 残り地雷数表示のマーカー
+#[derive(Component)]
+struct MineCountText;
 
 // フォントのリソース
 #[derive(Resource)]
@@ -28,25 +38,38 @@ fn spawn_node(mut commands: Commands, font: Res<FontHandle>) {
             UINode,
             Node {
                 position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
+                top: Val::Px(0.0),
+                width: Val::Px(constants::UI_W),
+                height: Val::Px(constants::UI_H),
+                justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
-                flex_direction: FlexDirection::Column,
+                padding: UiRect::horizontal(Val::Px(constants::UI_PADDING)),
                 ..default()
             },
+            BackgroundColor(Color::from(tailwind::GRAY_700)),
         ))
         .with_children(|p| {
-            // テスト用のテキストを描画
+            let text_font = TextFont {
+                font: font.0.clone(),
+                weight: FontWeight::BOLD,
+                font_size: 20.0,
+                ..default()
+            };
+
+            // 経過時間表示
             p.spawn((
-                Text::new("TEST TEXT"),
-                TextFont {
-                    font: font.0.clone(),
-                    weight: FontWeight::BOLD,
-                    font_size: 20.0,
-                    ..default()
-                },
-                TextColor(Color::WHITE),
+                TimerText,
+                Text::new("00:00"),
+                text_font.clone(),
+                TextColor(Color::from(tailwind::RED_600)),
+            ));
+
+            // 残り地雷数表示
+            p.spawn((
+                MineCountText,
+                Text::new("050"),
+                text_font.clone(),
+                TextColor(Color::from(tailwind::RED_600)),
             ));
         });
 }
