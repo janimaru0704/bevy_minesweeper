@@ -113,7 +113,9 @@ fn update_board(
     mut tile_query: Query<(&Tile, &mut Sprite, &Children)>,
     mut text_query: Query<(&mut Text2d, &mut TextColor), With<TileText>>,
 ) {
-    if !board.is_changed() { return; }
+    if !board.is_changed() {
+        return;
+    }
 
     for (tile, mut sprite, children) in &mut tile_query {
         let tile_state = board.get_tile(tile.x, tile.y);
@@ -124,41 +126,41 @@ fn update_board(
             TileAppearance::Revealed => Color::from(tailwind::GRAY_600),
         };
 
-        if let Some(&child) = children.first() {
-            if let Ok((mut text, mut text_color)) = text_query.get_mut(child) {
-                // 文字と文字色の更新
-                text.0 = match tile_state.appearance {
-                    TileAppearance::Hidden => "".to_string(),
-                    TileAppearance::Flagged => {
-                        text_color.0 = Color::from(tailwind::ROSE_600);
-                        "F".to_string()
+        if let Some(&child) = children.first()
+            && let Ok((mut text, mut text_color)) = text_query.get_mut(child)
+        {
+            // 文字と文字色の更新
+            text.0 = match tile_state.appearance {
+                TileAppearance::Hidden => "".to_string(),
+                TileAppearance::Flagged => {
+                    text_color.0 = Color::from(tailwind::ROSE_600);
+                    "F".to_string()
+                }
+                TileAppearance::Revealed => match tile_state.tile_type {
+                    TileType::Mine => {
+                        text_color.0 = Color::BLACK;
+                        "B".to_string()
                     }
-                    TileAppearance::Revealed => match tile_state.tile_type {
-                        TileType::Mine => {
-                            text_color.0 = Color::BLACK;
-                            "B".to_string()
+                    TileType::Empty(num) => {
+                        if num > 0 {
+                            text_color.0 = match num {
+                                1 => Color::from(tailwind::BLUE_600),
+                                2 => Color::from(tailwind::GREEN_800),
+                                3 => Color::from(tailwind::RED_500),
+                                4 => Color::from(tailwind::INDIGO_800),
+                                5 => Color::from(tailwind::RED_800),
+                                6 => Color::from(tailwind::TEAL_400),
+                                7 => Color::from(tailwind::PURPLE_500),
+                                8 => Color::from(tailwind::ZINC_700),
+                                _ => text_color.0,
+                            };
+                            num.to_string()
+                        } else {
+                            "".to_string()
                         }
-                        TileType::Empty(num) => {
-                            if num > 0 {
-                                text_color.0 = match num {
-                                    1 => Color::from(tailwind::BLUE_600),
-                                    2 => Color::from(tailwind::GREEN_800),
-                                    3 => Color::from(tailwind::RED_500),
-                                    4 => Color::from(tailwind::INDIGO_800),
-                                    5 => Color::from(tailwind::RED_800),
-                                    6 => Color::from(tailwind::TEAL_400),
-                                    7 => Color::from(tailwind::PURPLE_500),
-                                    8 => Color::from(tailwind::ZINC_700),
-                                    _ => text_color.0,
-                                };
-                                num.to_string()
-                            } else {
-                                "".to_string()
-                            }
-                        }
-                    },
-                };
-            }
+                    }
+                },
+            };
         }
     }
 }
