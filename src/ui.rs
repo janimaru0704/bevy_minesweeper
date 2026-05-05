@@ -6,7 +6,7 @@ pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (load_font, spawn_node).chain());
+        app.add_systems(PreStartup, (load_font, spawn_node).chain());
     }
 }
 
@@ -25,9 +25,9 @@ struct MineCountText;
 // フォントのリソース
 #[derive(Resource)]
 #[allow(dead_code)]
-struct FontHandle {
-    noto_sans: Handle<Font>,
-    dseg7: Handle<Font>,
+pub struct FontHandle {
+    pub noto_sans: Handle<Font>,
+    pub dseg7: Handle<Font>,
 }
 
 // フォントの読み込み
