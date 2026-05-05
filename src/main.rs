@@ -28,7 +28,7 @@ fn setup(mut commands: Commands, mut clear_color: ResMut<ClearColor>) {
     // 背景色を黒色に
     clear_color.0 = Color::BLACK;
 
-    // カメラを生成. 上40pxにUIを表示するのでずらす
+    // カメラを生成. 上部にUIを表示するのでずらす
     commands.spawn((
         Camera2d,
         Transform::from_xyz(0.0, constants::UI_H / 2.0, 0.0),
