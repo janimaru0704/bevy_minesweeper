@@ -24,15 +24,15 @@ struct MineCountText;
 
 // フォントのリソース
 #[derive(Resource)]
+#[allow(dead_code)]
 struct FontHandle {
-    #[allow(dead_code)]
     noto_sans: Handle<Font>,
     dseg7: Handle<Font>,
 }
 
 // フォントの読み込み
 fn load_font(mut commands: Commands, assets: Res<AssetServer>) {
-    commands.insert_resource(FontHandle{
+    commands.insert_resource(FontHandle {
         noto_sans: assets.load("NotoSansJP-VariableFont_wght.ttf"),
         dseg7: assets.load("DSEG7Modern-Bold.ttf"),
     });
