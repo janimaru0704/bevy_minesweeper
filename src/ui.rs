@@ -53,7 +53,6 @@ fn spawn_node(mut commands: Commands, font: Res<FontHandle>) {
                 padding: UiRect::horizontal(Val::Px(constants::UI_PADDING)),
                 ..default()
             },
-            BackgroundColor(Color::from(tailwind::GRAY_700)),
         ))
         .with_children(|p| {
             let text_font = TextFont {
