@@ -24,11 +24,18 @@ struct MineCountText;
 
 // フォントのリソース
 #[derive(Resource)]
-struct FontHandle(Handle<Font>);
+struct FontHandle {
+    #[allow(dead_code)]
+    noto_sans: Handle<Font>,
+    dseg7: Handle<Font>,
+}
 
 // フォントの読み込み
 fn load_font(mut commands: Commands, assets: Res<AssetServer>) {
-    commands.insert_resource(FontHandle(assets.load("NotoSansJP-VariableFont_wght.ttf")));
+    commands.insert_resource(FontHandle{
+        noto_sans: assets.load("NotoSansJP-VariableFont_wght.ttf"),
+        dseg7: assets.load("DSEG7Modern-Bold.ttf"),
+    });
 }
 
 // UIノードの配置
@@ -50,16 +57,15 @@ fn spawn_node(mut commands: Commands, font: Res<FontHandle>) {
         ))
         .with_children(|p| {
             let text_font = TextFont {
-                font: font.0.clone(),
-                weight: FontWeight::BOLD,
-                font_size: 20.0,
+                font: font.dseg7.clone(),
+                font_size: 40.0,
                 ..default()
             };
 
             // 経過時間表示
             p.spawn((
                 TimerText,
-                Text::new("00:00"),
+                Text::new("000"),
                 text_font.clone(),
                 TextColor(Color::from(tailwind::RED_600)),
             ));
