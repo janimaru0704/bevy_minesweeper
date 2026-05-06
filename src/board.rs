@@ -7,7 +7,7 @@ pub struct BoardPlugin;
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_board)
-            .add_systems(Update, update_board)
+            .add_systems(Update, update_board_visual)
             .add_observer(process_input);
     }
 }
@@ -110,8 +110,8 @@ fn spawn_board(mut commands: Commands, font: Res<ui::FontHandle>) {
     }
 }
 
-// ボードの更新
-fn update_board(
+// ボードの見た目の更新
+fn update_board_visual(
     board: Res<BoardState>,
     mut tile_query: Query<(&Tile, &mut Sprite, &Children)>,
     mut text_query: Query<(&mut Text2d, &mut TextColor), With<TileText>>,
