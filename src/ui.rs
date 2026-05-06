@@ -6,7 +6,7 @@ pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (load_font, spawn_node).chain());
+        app.add_systems(PreStartup, (load_font, spawn_node).chain());
     }
 }
 
@@ -24,15 +24,15 @@ struct MineCountText;
 
 // フォントのリソース
 #[derive(Resource)]
-struct FontHandle {
-    #[allow(dead_code)]
-    noto_sans: Handle<Font>,
-    dseg7: Handle<Font>,
+#[allow(dead_code)]
+pub struct FontHandle {
+    pub noto_sans: Handle<Font>,
+    pub dseg7: Handle<Font>,
 }
 
 // フォントの読み込み
 fn load_font(mut commands: Commands, assets: Res<AssetServer>) {
-    commands.insert_resource(FontHandle{
+    commands.insert_resource(FontHandle {
         noto_sans: assets.load("NotoSansJP-VariableFont_wght.ttf"),
         dseg7: assets.load("DSEG7Modern-Bold.ttf"),
     });
@@ -53,7 +53,6 @@ fn spawn_node(mut commands: Commands, font: Res<FontHandle>) {
                 padding: UiRect::horizontal(Val::Px(constants::UI_PADDING)),
                 ..default()
             },
-            BackgroundColor(Color::from(tailwind::GRAY_700)),
         ))
         .with_children(|p| {
             let text_font = TextFont {

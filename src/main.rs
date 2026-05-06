@@ -1,5 +1,6 @@
 use bevy::{prelude::*, window::WindowResolution, winit::WinitSettings};
 
+mod board;
 mod constants;
 mod ui;
 
@@ -17,7 +18,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(ui::UIPlugin)
+        .add_plugins((ui::UIPlugin, board::BoardPlugin))
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .run();
