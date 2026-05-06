@@ -68,12 +68,65 @@ impl Board {
         y * constants::TILE_COLUMNS + x
     }
 
+    // タイルの情報を取得
     fn get_tile(&self, x: usize, y: usize) -> &TileState {
         &self.0[Self::get_index(x, y)]
     }
 
+    // タイルの情報を取得(可変参照)
     fn get_tile_mut(&mut self, x: usize, y: usize) -> &mut TileState {
         &mut self.0[Self::get_index(x, y)]
+    }
+
+    // Revealedでないなら旗をトグルする
+    fn toggle_flag(&mut self, x: usize, y: usize) {
+        let tile = self.get_tile_mut(x, y);
+        tile.appearance = match tile.appearance {
+            TileAppearance::Hidden => TileAppearance::Flagged,
+            TileAppearance::Flagged => TileAppearance::Hidden,
+            TileAppearance::Revealed => TileAppearance::Revealed,
+        };
+    }
+
+    // 連鎖して開く
+    fn open_chain(&mut self, start_x: usize, start_y: usize) {
+        // 確認すべき座標を格納
+        let mut stack = vec![(start_x, start_y)];
+
+        while let Some((x, y)) = stack.pop() {
+            let tile = self.get_tile_mut(x, y);
+
+            // すでに開いている、もしくは旗が立っているならスキップ
+            if tile.appearance != TileAppearance::Hidden {
+                continue;
+            }
+
+            // タイルを開く
+            tile.appearance = TileAppearance::Revealed;
+
+            // このタイルが周囲に地雷がない空白なら周囲をスタックに追加
+            if tile.tile_type == TileType::Empty(0) {
+                for dy in -1..=1 {
+                    for dx in -1..=1 {
+                        if dx == 0 && dy == 0 {
+                            continue;
+                        }
+
+                        let nx = x as i32 + dx;
+                        let ny = y as i32 + dy;
+
+                        // 範囲内かチェック
+                        if 0 <= nx
+                            && nx < constants::TILE_COLUMNS as i32
+                            && 0 <= ny
+                            && ny < constants::TILE_ROWS as i32
+                        {
+                            stack.push((nx as usize, ny as usize));
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -147,7 +200,7 @@ fn update_board_visual(
             text.0 = match tile_state.appearance {
                 TileAppearance::Hidden => "".to_string(),
                 TileAppearance::Flagged => {
-                    text_color.0 = Color::from(tailwind::ROSE_500);
+                    text_color.0 = Color::from(tailwind::ROSE_700);
                     "F".to_string()
                 }
                 TileAppearance::Revealed => match tile_state.tile_type {
@@ -180,42 +233,26 @@ fn update_board_visual(
 }
 
 // 入力を受け付けて、ボードを更新
-fn process_input(
-    event: On<input::TileClickEvent>,
-    mut board: ResMut<Board>,
-) {
-    // タイルを取得
-    let tile = board.get_tile_mut(event.x, event.y);
-
+fn process_input(event: On<input::TileClickEvent>, mut board: ResMut<Board>) {
     // ボタンによって分岐
     match event.button {
-
         input::ClickButton::Left => {
-            // 閉じていて旗がないときのみ開く
-            if tile.appearance == TileAppearance::Hidden {
-                tile.appearance = TileAppearance::Revealed;
+            // タイルを開き、開けたなら次へ
+            if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
+                // TODO ゲームオーバー処理
+            } else {
+                board.open_chain(event.x, event.y);
             }
         }
         input::ClickButton::Right => {
             // 開いていないなら、旗をトグルする
-            match tile.appearance {
-                TileAppearance::Hidden => {
-                    tile.appearance = TileAppearance::Flagged;
-                }
-                TileAppearance::Flagged => {
-                    tile.appearance = TileAppearance::Hidden;
-                }
-                _ => {}
-            }
+            board.toggle_flag(event.x, event.y);
         }
     }
 }
 
 // 盤面をリセット
-fn reset_board_state(
-    _: On<ResetBoardEvent>,
-    mut commands: Commands,
-) {
+fn reset_board_state(_: On<ResetBoardEvent>, mut commands: Commands) {
     let mut board = Board(vec![
         TileState::default();
         constants::TILE_COLUMNS * constants::TILE_ROWS
@@ -267,11 +304,15 @@ fn calc_mine_numbers(board: &mut Board) {
                     // 確認先の座標を取得
                     let nx = x as i32 + dx;
                     let ny = y as i32 + dy;
-                    
+
                     // 範囲内であるか確認
-                    if 0 <= nx && nx < constants::TILE_COLUMNS as i32 && 0 <= ny && ny < constants::TILE_ROWS as i32 
-                        && board.get_tile(nx as usize, ny as usize).tile_type == TileType::Mine {
-                            count += 1;
+                    if 0 <= nx
+                        && nx < constants::TILE_COLUMNS as i32
+                        && 0 <= ny
+                        && ny < constants::TILE_ROWS as i32
+                        && board.get_tile(nx as usize, ny as usize).tile_type == TileType::Mine
+                    {
+                        count += 1;
                     }
                 }
             }
