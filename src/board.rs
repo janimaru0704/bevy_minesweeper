@@ -197,7 +197,6 @@ fn process_input(
             }
         }
         input::ClickButton::Right => {
-            println!("toggle");
             // 開いていないなら、旗をトグルする
             match tile.appearance {
                 TileAppearance::Hidden => {
