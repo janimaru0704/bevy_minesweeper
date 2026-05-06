@@ -2,6 +2,7 @@ use bevy::{prelude::*, window::WindowResolution, winit::WinitSettings};
 
 mod board;
 mod constants;
+mod input;
 mod ui;
 
 fn main() {
@@ -18,7 +19,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((ui::UIPlugin, board::BoardPlugin))
+        .add_plugins((ui::UIPlugin, board::BoardPlugin, input::InputPlugin))
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .run();

@@ -1,13 +1,14 @@
 use bevy::{color::palettes::tailwind, prelude::*};
 
-use crate::{constants, ui};
+use crate::{constants, input, ui};
 
 pub struct BoardPlugin;
 
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_board)
-            .add_systems(Update, update_board);
+            .add_systems(Update, update_board)
+            .add_observer(process_input);
     }
 }
 
@@ -166,4 +167,9 @@ fn update_board(
             };
         }
     }
+}
+
+// 入力を受け付けて、ボードを更新
+fn process_input(event: On<input::TileClickEvent>) {
+    println!("{}, {}: {:?}", event.x, event.y, event.button);
 }
