@@ -21,8 +21,8 @@ pub enum ClickButton {
 // タイルのインデックスと右or左クリックかの情報を持つ
 #[derive(Event)]
 pub struct TileClickEvent {
-    pub x: u32,
-    pub y: u32,
+    pub x: usize,
+    pub y: usize,
     pub button: ClickButton,
 }
 
@@ -46,8 +46,8 @@ fn mouse_input(
             .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
     {
         // タイルのインデックスに変換
-        let x = ((cursor_pos.x + constants::BOARD_W / 2.0) / constants::TILE_SIZE).floor() as u32;
-        let y = ((cursor_pos.y + constants::BOARD_H / 2.0) / constants::TILE_SIZE).floor() as u32;
+        let x = ((cursor_pos.x + constants::BOARD_W / 2.0) / constants::TILE_SIZE) as usize;
+        let y = ((cursor_pos.y + constants::BOARD_H / 2.0) / constants::TILE_SIZE) as usize;
 
         // 範囲内かチェック
         if x < constants::TILE_COLUMNS && y < constants::TILE_ROWS {

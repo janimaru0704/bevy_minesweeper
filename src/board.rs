@@ -1,4 +1,5 @@
 use bevy::{color::palettes::tailwind, prelude::*};
+use rand::seq::SliceRandom;
 
 use crate::{constants, input, ui};
 
@@ -7,8 +8,9 @@ pub struct BoardPlugin;
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_board)
-            .add_systems(Update, update_board)
-            .add_observer(process_input);
+            .add_systems(Update, update_board_visual)
+            .add_observer(process_input)
+            .add_observer(reset_board_state);
     }
 }
 
@@ -16,8 +18,8 @@ impl Plugin for BoardPlugin {
 #[derive(Component)]
 #[allow(dead_code)]
 struct Tile {
-    x: u32,
-    y: u32,
+    x: usize,
+    y: usize,
 }
 
 // タイル用テキストのマーカー
@@ -31,16 +33,23 @@ enum TileType {
     Mine,
 }
 
+impl Default for TileType {
+    fn default() -> Self {
+        Self::Empty(0)
+    }
+}
+
 // タイルの見た目 (隠れている/開いている/旗が立っている)
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
 enum TileAppearance {
+    #[default]
     Hidden,
     Revealed,
     Flagged,
 }
 
 // 1つのタイルの状態を格納する構造体
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
 struct TileState {
     tile_type: TileType,
     appearance: TileAppearance,
@@ -48,29 +57,30 @@ struct TileState {
 
 // 盤面の状態を管理するリソース
 #[derive(Resource)]
-struct BoardState(Vec<TileState>);
+struct Board(Vec<TileState>);
 
-impl BoardState {
-    fn get_index(x: u32, y: u32) -> usize {
-        (y * constants::TILE_COLUMNS + x) as usize
+// ボードリセットを要求するイベント
+#[derive(Event)]
+struct ResetBoardEvent;
+
+impl Board {
+    fn get_index(x: usize, y: usize) -> usize {
+        y * constants::TILE_COLUMNS + x
     }
 
-    fn get_tile(&self, x: u32, y: u32) -> &TileState {
+    fn get_tile(&self, x: usize, y: usize) -> &TileState {
         &self.0[Self::get_index(x, y)]
+    }
+
+    fn get_tile_mut(&mut self, x: usize, y: usize) -> &mut TileState {
+        &mut self.0[Self::get_index(x, y)]
     }
 }
 
 // 盤面を敷く
 fn spawn_board(mut commands: Commands, font: Res<ui::FontHandle>) {
     // 盤面の初期化
-    let tiles = vec![
-        TileState {
-            tile_type: TileType::Empty(0),
-            appearance: TileAppearance::Hidden,
-        };
-        (constants::TILE_COLUMNS * constants::TILE_ROWS) as usize
-    ];
-    commands.insert_resource(BoardState(tiles));
+    commands.trigger(ResetBoardEvent);
 
     // 起点となる左下の座標
     let offset_x = -constants::BOARD_W / 2.0 + (constants::TILE_SIZE / 2.0);
@@ -110,9 +120,9 @@ fn spawn_board(mut commands: Commands, font: Res<ui::FontHandle>) {
     }
 }
 
-// ボードの更新
-fn update_board(
-    board: Res<BoardState>,
+// ボードの見た目の更新
+fn update_board_visual(
+    board: Res<Board>,
     mut tile_query: Query<(&Tile, &mut Sprite, &Children)>,
     mut text_query: Query<(&mut Text2d, &mut TextColor), With<TileText>>,
 ) {
@@ -137,7 +147,7 @@ fn update_board(
             text.0 = match tile_state.appearance {
                 TileAppearance::Hidden => "".to_string(),
                 TileAppearance::Flagged => {
-                    text_color.0 = Color::from(tailwind::ROSE_600);
+                    text_color.0 = Color::from(tailwind::ROSE_500);
                     "F".to_string()
                 }
                 TileAppearance::Revealed => match tile_state.tile_type {
@@ -148,14 +158,14 @@ fn update_board(
                     TileType::Empty(num) => {
                         if num > 0 {
                             text_color.0 = match num {
-                                1 => Color::from(tailwind::BLUE_600),
-                                2 => Color::from(tailwind::GREEN_800),
+                                1 => Color::from(tailwind::BLUE_500),
+                                2 => Color::from(tailwind::GREEN_500),
                                 3 => Color::from(tailwind::RED_500),
-                                4 => Color::from(tailwind::INDIGO_800),
-                                5 => Color::from(tailwind::RED_800),
+                                4 => Color::from(tailwind::INDIGO_500),
+                                5 => Color::from(tailwind::RED_500),
                                 6 => Color::from(tailwind::TEAL_400),
                                 7 => Color::from(tailwind::PURPLE_500),
-                                8 => Color::from(tailwind::ZINC_700),
+                                8 => Color::from(tailwind::ZINC_500),
                                 _ => text_color.0,
                             };
                             num.to_string()
@@ -170,6 +180,103 @@ fn update_board(
 }
 
 // 入力を受け付けて、ボードを更新
-fn process_input(event: On<input::TileClickEvent>) {
-    println!("{}, {}: {:?}", event.x, event.y, event.button);
+fn process_input(
+    event: On<input::TileClickEvent>,
+    mut board: ResMut<Board>,
+) {
+    // タイルを取得
+    let tile = board.get_tile_mut(event.x, event.y);
+
+    // ボタンによって分岐
+    match event.button {
+
+        input::ClickButton::Left => {
+            // 閉じていて旗がないときのみ開く
+            if tile.appearance == TileAppearance::Hidden {
+                tile.appearance = TileAppearance::Revealed;
+            }
+        }
+        input::ClickButton::Right => {
+            // 開いていないなら、旗をトグルする
+            match tile.appearance {
+                TileAppearance::Hidden => {
+                    tile.appearance = TileAppearance::Flagged;
+                }
+                TileAppearance::Flagged => {
+                    tile.appearance = TileAppearance::Hidden;
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+// 盤面をリセット
+fn reset_board_state(
+    _: On<ResetBoardEvent>,
+    mut commands: Commands,
+) {
+    let mut board = Board(vec![
+        TileState::default();
+        constants::TILE_COLUMNS * constants::TILE_ROWS
+    ]);
+
+    // 地雷を配置
+    place_mines(&mut board);
+
+    // 地雷数を計算
+    calc_mine_numbers(&mut board);
+
+    // 盤面を上書き
+    commands.insert_resource(board);
+}
+
+// 地雷をランダムに配置
+fn place_mines(board: &mut Board) {
+    let mut rng = rand::rng();
+    let total_tiles = constants::TILE_COLUMNS * constants::TILE_ROWS;
+
+    // 全インデックスのリストを作成し、シャッフルする
+    let mut indices: Vec<usize> = (0..total_tiles).collect();
+    indices.shuffle(&mut rng);
+
+    // シャッフルされた先頭から個数分取り出してそのインデックスに地雷を置く
+    for &idx in indices.iter().take(constants::MINE_COUNT) {
+        board.0[idx].tile_type = TileType::Mine;
+    }
+}
+
+// 地雷数を計算して、Emptyマスの値に格納
+fn calc_mine_numbers(board: &mut Board) {
+    for y in 0..constants::TILE_ROWS {
+        for x in 0..constants::TILE_COLUMNS {
+            // 地雷マスはスキップ
+            if board.get_tile(x, y).tile_type == TileType::Mine {
+                continue;
+            }
+
+            // 周囲の数を確認
+            let mut count = 0;
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    // 自分自身はスキップ
+                    if dx == 0 && dy == 0 {
+                        continue;
+                    }
+
+                    // 確認先の座標を取得
+                    let nx = x as i32 + dx;
+                    let ny = y as i32 + dy;
+                    
+                    // 範囲内であるか確認
+                    if 0 <= nx && nx < constants::TILE_COLUMNS as i32 && 0 <= ny && ny < constants::TILE_ROWS as i32 
+                        && board.get_tile(nx as usize, ny as usize).tile_type == TileType::Mine {
+                            count += 1;
+                    }
+                }
+            }
+            // 計算した値をセット
+            board.get_tile_mut(x, y).tile_type = TileType::Empty(count);
+        }
+    }
 }
