@@ -30,6 +30,7 @@ enum TileType {
     Mine,
 }
 
+// タイルの見た目 (隠れている/開いている/旗が立っている)
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum TileAppearance {
     Hidden,
@@ -91,6 +92,7 @@ fn spawn_board(mut commands: Commands, font: Res<ui::FontHandle>) {
                     ),
                 ))
                 .with_children(|p| {
+                    // タイルそれぞれのテキスト
                     p.spawn((
                         TileText,
                         Text2d::new(""),
@@ -113,6 +115,7 @@ fn update_board(
     mut tile_query: Query<(&Tile, &mut Sprite, &Children)>,
     mut text_query: Query<(&mut Text2d, &mut TextColor), With<TileText>>,
 ) {
+    // 更新がないならスキップ
     if !board.is_changed() {
         return;
     }
