@@ -72,7 +72,7 @@ fn spawn_node(mut commands: Commands, font: Res<FontHandle>) {
             // 残り地雷数表示
             p.spawn((
                 MineCountText,
-                Text::new("050"),
+                Text::new(format!("{:03}", constants::MINE_COUNT)),
                 text_font.clone(),
                 TextColor(Color::from(tailwind::RED_600)),
             ));
