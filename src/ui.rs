@@ -92,7 +92,7 @@ fn update_mine_counter(
 
     // 盤面の旗の数を数える
     let flags = board
-        .0
+        .tiles
         .iter()
         .filter(|t| t.appearance == board::TileAppearance::Flagged)
         .count();
