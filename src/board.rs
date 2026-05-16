@@ -7,8 +7,8 @@ pub struct BoardPlugin;
 
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_board)
-            .add_systems(Update, update_board_visual)
+        app.add_systems(Startup, (spawn_board, insert_stopwatch))
+            .add_systems(Update, (update_board_visual, update_stopwatch))
             .add_observer(process_input)
             .add_observer(reset_board_state);
     }
@@ -58,6 +58,13 @@ pub struct TileState {
 // 盤面の状態を管理するリソース
 #[derive(Resource)]
 pub struct Board(pub Vec<TileState>);
+
+// ストップウォッチやその他ゲーム情報を管理するリソース
+#[derive(Resource, Default)]
+pub struct GameState {
+    pub is_active: bool,
+    pub time: f32,
+}
 
 // ボードリセットを要求するイベント
 #[derive(Event)]
@@ -288,7 +295,16 @@ fn update_board_visual(
 }
 
 // 入力を受け付けて、ボードを更新
-fn process_input(event: On<input::TileClickEvent>, mut board: ResMut<Board>) {
+fn process_input(
+    event: On<input::TileClickEvent>,
+    mut board: ResMut<Board>,
+    mut stopwatch: ResMut<GameState>,
+) {
+    // ストップウォッチが動いていないなら起動する
+    if !stopwatch.is_active {
+        stopwatch.is_active = true;
+    }
+
     // ボタンによって分岐
     match event.button {
         input::ClickButton::Left => {
@@ -375,5 +391,17 @@ fn calc_mine_numbers(board: &mut Board) {
             // 計算した値をセット
             board.get_tile_mut(x, y).tile_type = TileType::Empty(count);
         }
+    }
+}
+
+// ストップウォッチのリソースを登録
+fn insert_stopwatch(mut commands: Commands) {
+    commands.insert_resource(GameState::default());
+}
+
+// ストップウォッチを更新
+fn update_stopwatch(mut stopwatch: ResMut<GameState>, time: Res<Time>) {
+    if stopwatch.is_active {
+        stopwatch.time += time.delta_secs();
     }
 }

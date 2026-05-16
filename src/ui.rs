@@ -7,7 +7,7 @@ pub struct UIPlugin;
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PreStartup, (load_font, spawn_node).chain())
-            .add_systems(Update, update_mine_counter);
+            .add_systems(Update, (update_mine_counter, update_stopwatch));
     }
 }
 
@@ -15,9 +15,9 @@ impl Plugin for UIPlugin {
 #[derive(Component)]
 struct UINode;
 
-// 時間経過表示のマーカー
+// ストップウォッチのマーカー
 #[derive(Component)]
-struct TimerText;
+struct StopwatchText;
 
 // 残り地雷数表示のマーカー
 #[derive(Component)]
@@ -64,7 +64,7 @@ fn spawn_node(mut commands: Commands, font: Res<FontHandle>) {
 
             // 経過時間表示
             p.spawn((
-                TimerText,
+                StopwatchText,
                 Text::new("000"),
                 text_font.clone(),
                 TextColor(Color::from(tailwind::RED_600)),
@@ -101,5 +101,21 @@ fn update_mine_counter(
     if let Ok(mut text) = text.single_mut() {
         let remaining = constants::MINE_COUNT as i32 - flags as i32;
         text.0 = format!("{:03}", remaining);
+    }
+}
+
+// ストップウォッチの更新
+fn update_stopwatch(
+    game_state: Res<board::GameState>,
+    mut text: Query<&mut Text, With<StopwatchText>>,
+) {
+    // GameStateに更新がないならスキップ
+    if !game_state.is_changed() {
+        return;
+    }
+
+    // テキストを更新
+    if let Ok(mut text) = text.single_mut() {
+        text.0 = format!("{:03}", game_state.time as u32);
     }
 }
