@@ -424,10 +424,7 @@ fn process_input(
 }
 
 // 盤面をリセット
-fn reset_board_state(
-    _: On<ResetBoardEvent>,
-    mut commands: Commands,
-) {
+fn reset_board_state(_: On<ResetBoardEvent>, mut commands: Commands) {
     // 盤面を上書き
     commands.insert_resource(Board::empty());
     // ゲーム状態をリセット
