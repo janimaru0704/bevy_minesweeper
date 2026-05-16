@@ -128,6 +128,61 @@ impl Board {
             }
         }
     }
+
+    // ミドルクリックの処理
+    fn handle_middle_click(&mut self, x: usize, y: usize) {
+        let tile = self.get_tile(x, y);
+
+        // 空いている数字タイル以外は何もしない
+        if tile.appearance != TileAppearance::Revealed {
+            return;
+        }
+        if let TileType::Empty(target_num) = tile.tile_type {
+            // 数字が0なら何もしない
+            if target_num == 0 {
+                return;
+            }
+
+            // 周囲の旗をカウント
+            let mut flag_count = 0;
+            let mut hidden_neighbors = Vec::new();
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    if dx == 0 && dy == 0 {
+                        continue;
+                    }
+                    let nx = x as i32 + dx;
+                    let ny = y as i32 + dy;
+
+                    // 範囲内かチェック
+                    if 0 <= nx
+                        && nx < constants::TILE_COLUMNS as i32
+                        && 0 <= ny
+                        && ny < constants::TILE_ROWS as i32
+                    {
+                        let n_tile = self.get_tile(nx as usize, ny as usize);
+
+                        if n_tile.appearance == TileAppearance::Flagged {
+                            flag_count += 1;
+                        } else if n_tile.appearance == TileAppearance::Hidden {
+                            hidden_neighbors.push((nx as usize, ny as usize));
+                        }
+                    }
+                }
+            }
+
+            // 旗の数が数字と一致していたら、残りを全部開く
+            if flag_count == target_num {
+                for (nx, ny) in hidden_neighbors {
+                    if self.get_tile(nx, ny).tile_type == TileType::Mine {
+                        // ゲームオーバー処理
+                    } else {
+                        self.open_chain(nx, ny);
+                    }
+                }
+            }
+        }
+    }
 }
 
 // 盤面を敷く
@@ -219,7 +274,7 @@ fn update_board_visual(
                                 6 => Color::from(tailwind::TEAL_400),
                                 7 => Color::from(tailwind::PURPLE_500),
                                 8 => Color::from(tailwind::ZINC_500),
-                                _ => text_color.0,
+                                _ => unreachable!(),
                             };
                             num.to_string()
                         } else {
@@ -248,6 +303,7 @@ fn process_input(event: On<input::TileClickEvent>, mut board: ResMut<Board>) {
             // 開いていないなら、旗をトグルする
             board.toggle_flag(event.x, event.y);
         }
+        input::ClickButton::Middle => board.handle_middle_click(event.x, event.y),
     }
 }
 

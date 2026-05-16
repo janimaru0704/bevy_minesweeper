@@ -15,11 +15,12 @@ impl Plugin for InputPlugin {
 pub enum ClickButton {
     Left,
     Right,
+    Middle,
 }
 
 // マウスの入力をboardに伝えるイベント
 // タイルのインデックスと右or左クリックかの情報を持つ
-#[derive(Event)]
+#[derive(Event, Debug)]
 pub struct TileClickEvent {
     pub x: usize,
     pub y: usize,
@@ -34,7 +35,8 @@ fn mouse_input(
 ) {
     let is_left = mouse_input.just_pressed(MouseButton::Left);
     let is_right = mouse_input.just_pressed(MouseButton::Right);
-    if !is_left && !is_right {
+    let is_middle = mouse_input.just_pressed(MouseButton::Middle);
+    if !is_left && !is_right && !is_middle {
         return;
     }
 
@@ -56,8 +58,10 @@ fn mouse_input(
                 y,
                 button: if is_left {
                     ClickButton::Left
-                } else {
+                } else if is_right {
                     ClickButton::Right
+                } else {
+                    ClickButton::Middle
                 },
             });
         }
