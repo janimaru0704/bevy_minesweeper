@@ -381,13 +381,8 @@ fn update_board_visual(
 fn process_input(
     event: On<input::TileClickEvent>,
     mut board: ResMut<Board>,
-    mut stopwatch: ResMut<GameState>,
+    mut game_state: ResMut<GameState>,
 ) {
-    // ストップウォッチが動いていないなら起動する
-    if !stopwatch.is_active {
-        stopwatch.is_active = true;
-    }
-
     // ボタンによって分岐
     match event.button {
         input::ClickButton::Left => {
@@ -395,6 +390,10 @@ fn process_input(
             if !board.is_generated {
                 // 地雷を配置
                 board.place_mines(event.x, event.y);
+                // ストップウォッチを起動
+                if !game_state.is_active {
+                    game_state.is_active = true;
+                }
             }
 
             // タイルを開き、開けたなら次へ
@@ -425,9 +424,14 @@ fn process_input(
 }
 
 // 盤面をリセット
-fn reset_board_state(_: On<ResetBoardEvent>, mut commands: Commands) {
+fn reset_board_state(
+    _: On<ResetBoardEvent>,
+    mut commands: Commands,
+) {
     // 盤面を上書き
     commands.insert_resource(Board::empty());
+    // ゲーム状態をリセット
+    commands.insert_resource(GameState::default());
 }
 
 // ストップウォッチのリソースを登録
@@ -436,8 +440,8 @@ fn insert_stopwatch(mut commands: Commands) {
 }
 
 // ストップウォッチを更新
-fn update_stopwatch(mut stopwatch: ResMut<GameState>, time: Res<Time>) {
-    if stopwatch.is_active {
-        stopwatch.time += time.delta_secs();
+fn update_stopwatch(mut game_state: ResMut<GameState>, time: Res<Time>) {
+    if game_state.is_active {
+        game_state.time += time.delta_secs();
     }
 }
