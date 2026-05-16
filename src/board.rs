@@ -41,7 +41,7 @@ impl Default for TileType {
 
 // タイルの見た目 (隠れている/開いている/旗が立っている)
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
-enum TileAppearance {
+pub enum TileAppearance {
     #[default]
     Hidden,
     Revealed,
@@ -50,14 +50,14 @@ enum TileAppearance {
 
 // 1つのタイルの状態を格納する構造体
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
-struct TileState {
+pub struct TileState {
     tile_type: TileType,
-    appearance: TileAppearance,
+    pub appearance: TileAppearance,
 }
 
 // 盤面の状態を管理するリソース
 #[derive(Resource)]
-struct Board(Vec<TileState>);
+pub struct Board(pub Vec<TileState>);
 
 // ボードリセットを要求するイベント
 #[derive(Event)]
