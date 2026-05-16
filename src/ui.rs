@@ -6,8 +6,7 @@ pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(PreStartup, (load_font, spawn_node).chain())
+        app.add_systems(PreStartup, (load_font, spawn_node).chain())
             .add_systems(Update, update_mine_counter);
     }
 }
@@ -92,7 +91,9 @@ fn update_mine_counter(
     }
 
     // 盤面の旗の数を数える
-    let flags = board.0.iter()
+    let flags = board
+        .0
+        .iter()
         .filter(|t| t.appearance == board::TileAppearance::Flagged)
         .count();
 
