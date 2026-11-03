@@ -25,7 +25,6 @@ struct MineCounterText;
 
 // フォントのリソース
 #[derive(Resource)]
-#[allow(dead_code)]
 pub struct FontHandle {
     pub noto_sans: Handle<Font>,
     pub dseg7: Handle<Font>,
@@ -57,8 +56,8 @@ fn spawn_node(mut commands: Commands, font: Res<FontHandle>) {
         ))
         .with_children(|p| {
             let text_font = TextFont {
-                font: font.dseg7.clone(),
-                font_size: 40.0,
+                font: FontSource::Handle(font.dseg7.clone()),
+                font_size: FontSize::Px(40.0),
                 ..default()
             };
 
