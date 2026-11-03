@@ -1,6 +1,6 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
-use crate::{constants, GameState};
+use crate::{GameState, constants};
 
 pub struct InputPlugin;
 
