@@ -25,7 +25,6 @@ struct MineCounterText;
 
 // フォントのリソース
 #[derive(Resource)]
-#[allow(dead_code)]
 pub struct FontHandle {
     pub noto_sans: Handle<Font>,
     pub dseg7: Handle<Font>,

@@ -16,7 +16,6 @@ impl Plugin for BoardPlugin {
 
 // タイルのコンポーネント. 左下からの座標を持つ
 #[derive(Component)]
-#[allow(dead_code)]
 struct Tile {
     x: usize,
     y: usize,
