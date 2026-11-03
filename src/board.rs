@@ -155,7 +155,12 @@ impl Board {
     }
 
     // ミドルクリックの処理
-    fn handle_middle_click(&mut self, x: usize, y: usize) {
+    fn handle_middle_click(
+        &mut self,
+        x: usize,
+        y: usize,
+        next_game_state: &mut ResMut<NextState<GameState>>,
+    ) {
         let tile = self.get_tile(x, y);
 
         // 空いている数字タイル以外は何もしない
@@ -200,7 +205,8 @@ impl Board {
             if flag_count == target_num {
                 for (nx, ny) in hidden_neighbors {
                     if self.get_tile(nx, ny).tile_type == TileType::Mine {
-                        todo!("ゲームオーバー処理")
+                        // ゲームオーバー状態に遷移
+                        next_game_state.set(GameState::GameOver);
                     } else {
                         self.open_chain(nx, ny);
                     }
@@ -277,6 +283,22 @@ impl Board {
                 // 計算した値をセット
                 self.get_tile_mut(x, y).tile_type = TileType::Empty(count);
             }
+        }
+    }
+
+    // 盤面上の爆弾を全て開く
+    pub fn reveal_all_mines(&mut self) {
+        let mut mines = vec![];
+        for y in 0..constants::TILE_ROWS {
+            for x in 0..constants::TILE_COLUMNS {
+                if self.get_tile(x, y).tile_type == TileType::Mine {
+                    mines.push((x, y));
+                }
+            }
+        }
+
+        for (x, y) in mines {
+            self.get_tile_mut(x, y).appearance = TileAppearance::Revealed;
         }
     }
 }
@@ -410,7 +432,8 @@ fn process_tile_clicked(
                     input::ClickButton::Left => {
                         // タイルが爆弾ならゲームオーバーに，爆弾でないなら連鎖的に開く
                         if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
-                            todo!("ゲームオーバー処理")
+                            // ゲームオーバー状態に遷移
+                            next_game_state.set(GameState::GameOver);
                         } else {
                             board.open_chain(event.x, event.y);
                         }
@@ -420,7 +443,7 @@ fn process_tile_clicked(
                         board.toggle_flag(event.x, event.y);
                     }
                     input::ClickButton::Middle => {
-                        board.handle_middle_click(event.x, event.y);
+                        board.handle_middle_click(event.x, event.y, &mut next_game_state);
                     }
                 }
             }

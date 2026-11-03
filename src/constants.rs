@@ -5,7 +5,11 @@ pub const WINDOW_H: f32 = 880.0;
 // UI
 pub const UI_W: f32 = WINDOW_W;
 pub const UI_H: f32 = 80.0;
-pub const UI_PADDING: f32 = 60.0;
+pub const UI_PADDING_H: f32 = 60.0;
+pub const COUNTER_FONT_SIZE: f32 = 40.0;
+pub const RESET_BUTTON_PADDING_HORIZONTAL: f32 = 10.0;
+pub const RESET_BUTTON_PADDING_VERTICAL: f32 = 5.0;
+pub const RESET_BUTTON_FONT_SIZE: f32 = 36.0;
 
 // タイルとボード
 pub const BOARD_W: f32 = WINDOW_W;
