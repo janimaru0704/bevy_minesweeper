@@ -7,10 +7,10 @@ pub struct BoardPlugin;
 
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (spawn_board, insert_stopwatch))
+        app.add_systems(Startup, spawn_board)
+            .add_systems(OnEnter(GameState::PreGame), (reset_game_resource, reset_board))
             .add_systems(Update, (update_board_visual, update_stopwatch.run_if(in_state(GameState::InGame))))
-            .add_observer(process_tile_clicked.run_if(in_state(GameState::PreGame).or_else(in_state(GameState::InGame))))
-            .add_observer(reset_board_state);
+            .add_observer(process_tile_clicked.run_if(in_state(GameState::PreGame).or_else(in_state(GameState::InGame))));
     }
 }
 
@@ -75,10 +75,6 @@ impl Board {
 pub struct GameResources {
     pub time: f32,
 }
-
-// ボードリセットを要求するイベント
-#[derive(Event)]
-struct ResetBoardEvent;
 
 impl Board {
     fn get_index(x: usize, y: usize) -> usize {
@@ -275,9 +271,6 @@ impl Board {
 
 // 盤面を敷く
 fn spawn_board(mut commands: Commands, font: Res<ui::FontHandle>) {
-    // 盤面の初期化
-    commands.trigger(ResetBoardEvent);
-
     // 起点となる左下の座標
     let offset_x = -constants::BOARD_W / 2.0 + (constants::TILE_SIZE / 2.0);
     let offset_y = -constants::BOARD_H / 2.0 + (constants::TILE_SIZE / 2.0);
@@ -386,10 +379,10 @@ fn process_tile_clicked(
     match event.button {
         input::ClickButton::Left => {
             // 初手(盤面未生成 または GameState::PreGame)なら生成
-            if !board.is_generated || *game_state.get() == GameState::InGame {
+            if !board.is_generated || *game_state.get() == GameState::PreGame {
                 // 地雷を配置
                 board.place_mines(event.x, event.y);
-                
+
                 // 状態をGameState::InGameに遷移
                 next_game_state.set(GameState::InGame);
             }
@@ -422,15 +415,13 @@ fn process_tile_clicked(
 }
 
 // 盤面をリセット
-fn reset_board_state(_: On<ResetBoardEvent>, mut commands: Commands) {
-    // 盤面を上書き
+fn reset_board(mut commands: Commands) {
+    // 盤面をリセット
     commands.insert_resource(Board::empty());
-    // ゲーム状態をリセット
-    commands.insert_resource(GameResources::default());
 }
 
-// ストップウォッチのリソースを登録
-fn insert_stopwatch(mut commands: Commands) {
+// ゲームリソースをリセット
+fn reset_game_resource(mut commands: Commands) {
     commands.insert_resource(GameResources::default());
 }
 
