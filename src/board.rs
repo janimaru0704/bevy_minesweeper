@@ -8,7 +8,7 @@ pub struct BoardPlugin;
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_board)
-            .add_systems(OnEnter(GameState::PreGame), (reset_game_resource, reset_board))
+            .add_systems(OnEnter(GameState::PreGame), (reset_game_resources, reset_board))
             .add_systems(Update, (update_board_visual, update_stopwatch.run_if(in_state(GameState::InGame))))
             .add_observer(process_tile_clicked.run_if(in_state(GameState::PreGame).or_else(in_state(GameState::InGame))));
     }
@@ -424,11 +424,11 @@ fn reset_board(mut commands: Commands) {
 }
 
 // ゲームリソースをリセット
-fn reset_game_resource(mut commands: Commands) {
+fn reset_game_resources(mut commands: Commands) {
     commands.insert_resource(GameResources::default());
 }
 
 // ストップウォッチを更新
-fn update_stopwatch(mut game_state: ResMut<GameResources>, time: Res<Time>) {
-    game_state.time += time.delta_secs();
+fn update_stopwatch(mut game_resources: ResMut<GameResources>, time: Res<Time>) {
+    game_resources.time += time.delta_secs();
 }
