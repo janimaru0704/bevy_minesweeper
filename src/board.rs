@@ -188,7 +188,7 @@ impl Board {
             if flag_count == target_num {
                 for (nx, ny) in hidden_neighbors {
                     if self.get_tile(nx, ny).tile_type == TileType::Mine {
-                        // ゲームオーバー処理
+                        todo!("ゲームオーバー処理")
                     } else {
                         self.open_chain(nx, ny);
                     }
@@ -375,42 +375,45 @@ fn process_tile_clicked(
     game_state: Res<State<GameState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
 ) {
-    // ボタンによって分岐
-    match event.button {
-        input::ClickButton::Left => {
-            // 初手(盤面未生成 または GameState::PreGame)なら生成
-            if !board.is_generated || *game_state.get() == GameState::PreGame {
+    // GameStateによって分岐
+    match *game_state.get() {
+        GameState::PreGame => {
+            // 盤面未生成ならば，左クリックで生成
+            if !board.is_generated && event.button == input::ClickButton::Left {
                 // 地雷を配置
                 board.place_mines(event.x, event.y);
+
+                // 最初のマスから連鎖的にマスを開く(爆弾でないことは，配置によって保証済み)
+                board.open_chain(event.x, event.y);
 
                 // 状態をGameState::InGameに遷移
                 next_game_state.set(GameState::InGame);
             }
-
-            // タイルを開き、開けたなら次へ
-            if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
-                // TODO ゲームオーバー処理
-            } else {
-                board.open_chain(event.x, event.y);
+        }
+        GameState::InGame => {
+            // ボードが生成されていることを前提とする
+            if board.is_generated {
+                // ボタンによって分岐
+                match event.button {
+                    input::ClickButton::Left => {
+                        // タイルが爆弾ならゲームオーバーに，爆弾でないなら連鎖的に開く
+                        if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
+                            todo!("ゲームオーバー処理")
+                        } else {
+                            board.open_chain(event.x, event.y);
+                        }
+                    }
+                    input::ClickButton::Right => {
+                        // 旗をトグルする
+                        board.toggle_flag(event.x, event.y);
+                    }
+                    input::ClickButton::Middle => {
+                        board.handle_middle_click(event.x, event.y);
+                    }
+                }
             }
         }
-        input::ClickButton::Right => {
-            // 生成前ならスキップ
-            if !board.is_generated {
-                return;
-            }
-
-            // 開いていないなら、旗をトグルする
-            board.toggle_flag(event.x, event.y);
-        }
-        input::ClickButton::Middle => {
-            // 生成前ならスキップ
-            if !board.is_generated {
-                return;
-            }
-
-            board.handle_middle_click(event.x, event.y);
-        }
+        _ => unreachable!(),
     }
 }
 
