@@ -105,7 +105,7 @@ fn update_mine_counter(
 
 // ストップウォッチの更新
 fn update_stopwatch(
-    game_state: Res<board::GameState>,
+    game_state: Res<board::GameResources>,
     mut text: Query<&mut Text, With<StopwatchText>>,
 ) {
     // GameStateに更新がないならスキップ

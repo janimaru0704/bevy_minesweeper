@@ -1,15 +1,15 @@
 use bevy::{color::palettes::tailwind, prelude::*};
 use rand::seq::SliceRandom;
 
-use crate::{constants, input, ui};
+use crate::{constants, input, ui, GameState};
 
 pub struct BoardPlugin;
 
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (spawn_board, insert_stopwatch))
-            .add_systems(Update, (update_board_visual, update_stopwatch))
-            .add_observer(process_input)
+            .add_systems(Update, (update_board_visual, update_stopwatch.run_if(in_state(GameState::InGame))))
+            .add_observer(process_tile_clicked.run_if(in_state(GameState::PreGame).or_else(in_state(GameState::InGame))))
             .add_observer(reset_board_state);
     }
 }
@@ -72,8 +72,7 @@ impl Board {
 
 // ストップウォッチやその他ゲーム情報を管理するリソース
 #[derive(Resource, Default)]
-pub struct GameState {
-    pub is_active: bool,
+pub struct GameResources {
     pub time: f32,
 }
 
@@ -377,22 +376,22 @@ fn update_board_visual(
 }
 
 // 入力を受け付けて、ボードを更新
-fn process_input(
+fn process_tile_clicked(
     event: On<input::TileClickEvent>,
     mut board: ResMut<Board>,
-    mut game_state: ResMut<GameState>,
+    game_state: Res<State<GameState>>,
+    mut next_game_state: ResMut<NextState<GameState>>,
 ) {
     // ボタンによって分岐
     match event.button {
         input::ClickButton::Left => {
-            // 初手なら生成
-            if !board.is_generated {
+            // 初手(盤面未生成 または GameState::PreGame)なら生成
+            if !board.is_generated || *game_state.get() == GameState::InGame {
                 // 地雷を配置
                 board.place_mines(event.x, event.y);
-                // ストップウォッチを起動
-                if !game_state.is_active {
-                    game_state.is_active = true;
-                }
+                
+                // 状態をGameState::InGameに遷移
+                next_game_state.set(GameState::InGame);
             }
 
             // タイルを開き、開けたなら次へ
@@ -427,17 +426,15 @@ fn reset_board_state(_: On<ResetBoardEvent>, mut commands: Commands) {
     // 盤面を上書き
     commands.insert_resource(Board::empty());
     // ゲーム状態をリセット
-    commands.insert_resource(GameState::default());
+    commands.insert_resource(GameResources::default());
 }
 
 // ストップウォッチのリソースを登録
 fn insert_stopwatch(mut commands: Commands) {
-    commands.insert_resource(GameState::default());
+    commands.insert_resource(GameResources::default());
 }
 
 // ストップウォッチを更新
-fn update_stopwatch(mut game_state: ResMut<GameState>, time: Res<Time>) {
-    if game_state.is_active {
-        game_state.time += time.delta_secs();
-    }
+fn update_stopwatch(mut game_state: ResMut<GameResources>, time: Res<Time>) {
+    game_state.time += time.delta_secs();
 }
