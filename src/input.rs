@@ -10,7 +10,7 @@ impl Plugin for InputPlugin {
     }
 }
 
-// 右クリックか左クリックかの内容
+// 右クリックか左クリックか中クリックかの内容
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ClickButton {
     Left,
