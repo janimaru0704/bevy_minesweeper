@@ -306,8 +306,8 @@ fn spawn_board(mut commands: Commands, font: Res<ui::FontHandle>) {
                         TileText,
                         Text2d::new(""),
                         TextFont {
-                            font: font.noto_sans.clone(),
-                            font_size: 32.0,
+                            font: FontSource::Handle(font.noto_sans.clone()),
+                            font_size: FontSize::Px(32.0),
                             weight: FontWeight::BOLD,
                             ..default()
                         },
