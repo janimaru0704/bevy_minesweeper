@@ -160,6 +160,7 @@ impl Board {
         x: usize,
         y: usize,
         next_game_state: &mut ResMut<NextState<GameState>>,
+        is_mine_opened: &mut bool,
     ) {
         let tile = self.get_tile(x, y);
 
@@ -207,6 +208,7 @@ impl Board {
                     if self.get_tile(nx, ny).tile_type == TileType::Mine {
                         // ゲームオーバー状態に遷移
                         next_game_state.set(GameState::GameOver);
+                        *is_mine_opened = true;
                     } else {
                         self.open_chain(nx, ny);
                     }
@@ -291,6 +293,14 @@ impl Board {
         self.tiles.iter_mut()
             .filter(|tile| tile.tile_type == TileType::Mine)
             .for_each(|tile| tile.appearance = TileAppearance::Revealed);
+    }
+
+    // 全てのEmptyマスが開かれたかを確認
+    fn is_cleared(&self) -> bool {
+        self.tiles.iter()
+            .filter(|tile| tile.appearance == TileAppearance::Revealed)
+            .count()
+            == self.tiles.len() - constants::MINE_COUNT
     }
 }
 
@@ -416,6 +426,8 @@ fn process_tile_clicked(
             }
         }
         GameState::InGame => {
+            // 爆弾を踏んだかどうか
+            let mut is_mine_opened = false;
             // ボードが生成されていることを前提とする
             if board.is_generated {
                 // ボタンによって分岐
@@ -425,6 +437,7 @@ fn process_tile_clicked(
                         if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
                             // ゲームオーバー状態に遷移
                             next_game_state.set(GameState::GameOver);
+                            is_mine_opened = true;
                         } else {
                             board.open_chain(event.x, event.y);
                         }
@@ -434,12 +447,17 @@ fn process_tile_clicked(
                         board.toggle_flag(event.x, event.y);
                     }
                     input::ClickButton::Middle => {
-                        board.handle_middle_click(event.x, event.y, &mut next_game_state);
+                        board.handle_middle_click(event.x, event.y, &mut next_game_state, &mut is_mine_opened);
                     }
                 }
             }
+
+            // Emptyマスが必要数開かれて，かつ爆弾を踏まなかったなら，GameState::GameClearに遷移
+            if board.is_cleared() && !is_mine_opened {
+                next_game_state.set(GameState::GameClear);
+            }
         }
-        _ => unreachable!(),
+        _ => {}
     }
 }
 
