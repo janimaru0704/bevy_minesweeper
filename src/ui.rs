@@ -166,7 +166,7 @@ fn update_stopwatch(
 
     // テキストを更新
     if let Ok(mut text) = text.single_mut() {
-        text.0 = format!("{:03}", game_state.time as u32);
+        text.0 = format!("{:03}", (game_state.time as u32).min(999));
     }
 }
 
