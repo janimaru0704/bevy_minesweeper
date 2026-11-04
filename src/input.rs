@@ -52,15 +52,17 @@ fn mouse_input(
         // GameStateがPreGameかInGameの時のみ実行する
         if matches!(*game_state.get(), GameState::PreGame | GameState::InGame) {
             // タイルのインデックスに変換
-            let x = ((cursor_pos.x + constants::BOARD_W / 2.0) / constants::TILE_SIZE) as usize;
-            let y = ((cursor_pos.y + constants::BOARD_H / 2.0) / constants::TILE_SIZE) as usize;
+            let x = ((cursor_pos.x + constants::BOARD_W / 2.0) / constants::TILE_SIZE).floor() as i32;
+            let y = ((cursor_pos.y + constants::BOARD_H / 2.0) / constants::TILE_SIZE).floor() as i32;
 
             // 範囲内かチェック
-            if x < constants::TILE_COLUMNS && y < constants::TILE_ROWS {
+            if (0..constants::TILE_COLUMNS as i32).contains(&x)
+                && (0..constants::TILE_ROWS as i32).contains(&y)
+            {
                 // タイルクリックのイベントを発火
                 commands.trigger(TileClickEvent {
-                    x,
-                    y,
+                    x: x as usize,
+                    y: y as usize,
                     button: if is_left {
                         ClickButton::Left
                     } else if is_right {
