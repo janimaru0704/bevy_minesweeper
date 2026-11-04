@@ -1,6 +1,6 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
-use crate::constants;
+use crate::{GameState, constants};
 
 pub struct InputPlugin;
 
@@ -10,7 +10,7 @@ impl Plugin for InputPlugin {
     }
 }
 
-// 右クリックか左クリックかの内容
+// 右クリックか左クリックか中クリックかの内容
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ClickButton {
     Left,
@@ -32,6 +32,7 @@ fn mouse_input(
     mouse_input: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
+    game_state: Res<State<GameState>>,
 ) {
     let is_left = mouse_input.just_pressed(MouseButton::Left);
     let is_right = mouse_input.just_pressed(MouseButton::Right);
@@ -47,23 +48,30 @@ fn mouse_input(
             .cursor_position()
             .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
     {
-        // タイルのインデックスに変換
-        let x = ((cursor_pos.x + constants::BOARD_W / 2.0) / constants::TILE_SIZE) as usize;
-        let y = ((cursor_pos.y + constants::BOARD_H / 2.0) / constants::TILE_SIZE) as usize;
+        // タイルに対する入力
+        // GameStateがPreGameかInGameの時のみ実行する
+        if matches!(*game_state.get(), GameState::PreGame | GameState::InGame) {
+            // タイルのインデックスに変換
+            let x = ((cursor_pos.x + constants::BOARD_W / 2.0) / constants::TILE_SIZE).floor() as i32;
+            let y = ((cursor_pos.y + constants::BOARD_H / 2.0) / constants::TILE_SIZE).floor() as i32;
 
-        // 範囲内かチェック
-        if x < constants::TILE_COLUMNS && y < constants::TILE_ROWS {
-            commands.trigger(TileClickEvent {
-                x,
-                y,
-                button: if is_left {
-                    ClickButton::Left
-                } else if is_right {
-                    ClickButton::Right
-                } else {
-                    ClickButton::Middle
-                },
-            });
+            // 範囲内かチェック
+            if (0..constants::TILE_COLUMNS as i32).contains(&x)
+                && (0..constants::TILE_ROWS as i32).contains(&y)
+            {
+                // タイルクリックのイベントを発火
+                commands.trigger(TileClickEvent {
+                    x: x as usize,
+                    y: y as usize,
+                    button: if is_left {
+                        ClickButton::Left
+                    } else if is_right {
+                        ClickButton::Right
+                    } else {
+                        ClickButton::Middle
+                    },
+                });
+            }
         }
     }
 }

@@ -1,16 +1,26 @@
 use bevy::{color::palettes::tailwind, prelude::*};
 use rand::seq::SliceRandom;
+use std::collections::HashSet;
 
-use crate::{constants, input, ui};
+use crate::{GameState, constants, input, ui};
 
 pub struct BoardPlugin;
 
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (spawn_board, insert_stopwatch))
-            .add_systems(Update, (update_board_visual, update_stopwatch))
-            .add_observer(process_input)
-            .add_observer(reset_board_state);
+        app.add_systems(Startup, spawn_board)
+            .add_systems(
+                OnEnter(GameState::PreGame),
+                (reset_game_resources, reset_board),
+            )
+            .add_systems(
+                Update,
+                (
+                    update_board_visual,
+                    update_stopwatch.run_if(in_state(GameState::InGame)),
+                ),
+            )
+            .add_observer(process_tile_clicked);
     }
 }
 
@@ -58,32 +68,40 @@ pub struct TileState {
 #[derive(Resource)]
 pub struct Board {
     pub tiles: Vec<TileState>,
-    is_generated: bool,
 }
 
 impl Board {
     fn empty() -> Self {
         Board {
             tiles: vec![TileState::default(); constants::TILE_COLUMNS * constants::TILE_ROWS],
-            is_generated: false,
         }
     }
 }
 
 // ストップウォッチやその他ゲーム情報を管理するリソース
 #[derive(Resource, Default)]
-pub struct GameState {
-    pub is_active: bool,
+pub struct GameResources {
     pub time: f32,
 }
 
-// ボードリセットを要求するイベント
-#[derive(Event)]
-struct ResetBoardEvent;
-
 impl Board {
+    // 座標からtilesのindexに変換
     fn get_index(x: usize, y: usize) -> usize {
         y * constants::TILE_COLUMNS + x
+    }
+
+    // (x, y)のマスの周囲8マスの座標を返すイテレータ
+    fn neighbors(x: usize, y: usize) -> impl Iterator<Item = (usize, usize)> {
+        (-1i32..=1)
+            .flat_map(move |dy| (-1i32..=1).map(move |dx| (dx, dy)))
+            .filter(|&(dx, dy)| (dx, dy) != (0, 0))
+            .filter_map(move |(dx, dy)| {
+                let nx = x as i32 + dx;
+                let ny = y as i32 + dy;
+                ((0..constants::TILE_COLUMNS as i32).contains(&nx)
+                    && (0..constants::TILE_ROWS as i32).contains(&ny))
+                .then_some((nx as usize, ny as usize))
+            })
     }
 
     // タイルの情報を取得
@@ -124,102 +142,66 @@ impl Board {
 
             // このタイルが周囲に地雷がない空白なら周囲をスタックに追加
             if tile.tile_type == TileType::Empty(0) {
-                for dy in -1..=1 {
-                    for dx in -1..=1 {
-                        if dx == 0 && dy == 0 {
-                            continue;
-                        }
-
-                        let nx = x as i32 + dx;
-                        let ny = y as i32 + dy;
-
-                        // 範囲内かチェック
-                        if 0 <= nx
-                            && nx < constants::TILE_COLUMNS as i32
-                            && 0 <= ny
-                            && ny < constants::TILE_ROWS as i32
-                        {
-                            stack.push((nx as usize, ny as usize));
-                        }
-                    }
-                }
+                stack.extend(Self::neighbors(x, y));
             }
         }
     }
 
     // ミドルクリックの処理
-    fn handle_middle_click(&mut self, x: usize, y: usize) {
+    fn handle_middle_click(&mut self, x: usize, y: usize) -> bool {
         let tile = self.get_tile(x, y);
 
-        // 空いている数字タイル以外は何もしない
+        // 開いている数字タイル以外は何もしない
         if tile.appearance != TileAppearance::Revealed {
-            return;
+            return false;
         }
-        if let TileType::Empty(target_num) = tile.tile_type {
-            // 数字が0なら何もしない
-            if target_num == 0 {
-                return;
-            }
-
-            // 周囲の旗をカウント
-            let mut flag_count = 0;
-            let mut hidden_neighbors = Vec::new();
-            for dy in -1..=1 {
-                for dx in -1..=1 {
-                    if dx == 0 && dy == 0 {
-                        continue;
-                    }
-                    let nx = x as i32 + dx;
-                    let ny = y as i32 + dy;
-
-                    // 範囲内かチェック
-                    if 0 <= nx
-                        && nx < constants::TILE_COLUMNS as i32
-                        && 0 <= ny
-                        && ny < constants::TILE_ROWS as i32
-                    {
-                        let n_tile = self.get_tile(nx as usize, ny as usize);
-
-                        if n_tile.appearance == TileAppearance::Flagged {
-                            flag_count += 1;
-                        } else if n_tile.appearance == TileAppearance::Hidden {
-                            hidden_neighbors.push((nx as usize, ny as usize));
-                        }
-                    }
-                }
-            }
-
-            // 旗の数が数字と一致していたら、残りを全部開く
-            if flag_count == target_num {
-                for (nx, ny) in hidden_neighbors {
-                    if self.get_tile(nx, ny).tile_type == TileType::Mine {
-                        // ゲームオーバー処理
-                    } else {
-                        self.open_chain(nx, ny);
-                    }
-                }
-            }
+        let TileType::Empty(target_num) = tile.tile_type else {
+            return false;
+        };
+        if target_num == 0 {
+            return false;
         }
+
+        // 周囲の旗の数が数字と一致している時だけ処理する
+        let flag_count = Self::neighbors(x, y)
+            .filter(|&(nx, ny)| self.get_tile(nx, ny).appearance == TileAppearance::Flagged)
+            .count();
+        if flag_count != target_num as usize {
+            return false;
+        }
+
+        // 周囲の隠れているマスを集めてから開く
+        let hidden = Self::neighbors(x, y)
+            .filter(|&(nx, ny)| self.get_tile(nx, ny).appearance == TileAppearance::Hidden)
+            .collect::<Vec<_>>();
+
+        for (nx, ny) in hidden {
+            if self.get_tile(nx, ny).tile_type == TileType::Mine {
+                // 旗の位置が間違っていた。ゲームオーバーなのでtrueを返して抜ける
+                return true;
+            }
+            self.open_chain(nx, ny);
+        }
+
+        false
     }
 
     // 地雷を指定された座標周辺を避けてランダムに配置
     fn place_mines(&mut self, click_x: usize, click_y: usize) {
         let mut rng = rand::rng();
 
-        // 全インデックスのリストを作成し、シャッフルする
-        let mut candidates = Vec::new();
+        // クリックされた周囲3x3マスは候補から除く
+        let remove_set: HashSet<_> = Self::neighbors(click_x, click_y)
+            .chain(std::iter::once((click_x, click_y)))
+            .collect();
 
-        for y in 0..constants::TILE_ROWS {
-            for x in 0..constants::TILE_COLUMNS {
-                // クリック位置を中心として3x3の範囲は除外
-                if !((x as i32 - click_x as i32).abs() <= 1
-                    && (y as i32 - click_y as i32).abs() <= 1)
-                {
-                    candidates.push((x, y));
-                }
-            }
-        }
+        // クリックされた周囲3x3マスを除く全ての座標のリストを作成
+        let mut candidates: Vec<_> = (0..constants::TILE_ROWS)
+            .flat_map(move |y| (0..constants::TILE_COLUMNS).map(move |x| (x, y)))
+            .filter(|pos| !remove_set.contains(pos))
+            .collect();
 
+        // シャッフル
         candidates.shuffle(&mut rng);
 
         // シャッフルされた先頭から個数分取り出してそのインデックスに地雷を置く
@@ -227,11 +209,8 @@ impl Board {
             self.get_tile_mut(x, y).tile_type = TileType::Mine;
         }
 
-        // 地雷数を計算
+        // 各マスの周囲の地雷数を計算
         self.calc_mine_numbers();
-
-        // 生成済み状態にする
-        self.is_generated = true;
     }
 
     // 地雷数を計算して、Emptyマスの値に格納
@@ -244,41 +223,36 @@ impl Board {
                 }
 
                 // 周囲の数を確認
-                let mut count = 0;
-                for dy in -1..=1 {
-                    for dx in -1..=1 {
-                        // 自分自身はスキップ
-                        if dx == 0 && dy == 0 {
-                            continue;
-                        }
+                let count = Self::neighbors(x, y)
+                    .filter(|&(nx, ny)| self.get_tile(nx, ny).tile_type == TileType::Mine)
+                    .count();
 
-                        // 確認先の座標を取得
-                        let nx = x as i32 + dx;
-                        let ny = y as i32 + dy;
-
-                        // 範囲内であるか確認
-                        if 0 <= nx
-                            && nx < constants::TILE_COLUMNS as i32
-                            && 0 <= ny
-                            && ny < constants::TILE_ROWS as i32
-                            && self.get_tile(nx as usize, ny as usize).tile_type == TileType::Mine
-                        {
-                            count += 1;
-                        }
-                    }
-                }
                 // 計算した値をセット
-                self.get_tile_mut(x, y).tile_type = TileType::Empty(count);
+                self.get_tile_mut(x, y).tile_type = TileType::Empty(count as u8);
             }
         }
+    }
+
+    // 盤面上の地雷を全て開く
+    pub fn reveal_all_mines(&mut self) {
+        self.tiles
+            .iter_mut()
+            .filter(|tile| tile.tile_type == TileType::Mine)
+            .for_each(|tile| tile.appearance = TileAppearance::Revealed);
+    }
+
+    // 全てのEmptyマスが開かれたかを確認
+    fn is_cleared(&self) -> bool {
+        self.tiles
+            .iter()
+            .filter(|tile| tile.appearance == TileAppearance::Revealed)
+            .count()
+            == self.tiles.len() - constants::MINE_COUNT
     }
 }
 
 // 盤面を敷く
 fn spawn_board(mut commands: Commands, font: Res<ui::FontHandle>) {
-    // 盤面の初期化
-    commands.trigger(ResetBoardEvent);
-
     // 起点となる左下の座標
     let offset_x = -constants::BOARD_W / 2.0 + (constants::TILE_SIZE / 2.0);
     let offset_y = -constants::BOARD_H / 2.0 + (constants::TILE_SIZE / 2.0);
@@ -377,67 +351,80 @@ fn update_board_visual(
 }
 
 // 入力を受け付けて、ボードを更新
-fn process_input(
+fn process_tile_clicked(
     event: On<input::TileClickEvent>,
     mut board: ResMut<Board>,
-    mut game_state: ResMut<GameState>,
+    game_state: Res<State<GameState>>,
+    mut next_game_state: ResMut<NextState<GameState>>,
 ) {
-    // ボタンによって分岐
-    match event.button {
-        input::ClickButton::Left => {
-            // 初手なら生成
-            if !board.is_generated {
+    // GameStateによって分岐
+    match *game_state.get() {
+        GameState::PreGame => {
+            // 左クリックで盤面を生成
+            if event.button == input::ClickButton::Left {
                 // 地雷を配置
                 board.place_mines(event.x, event.y);
-                // ストップウォッチを起動
-                if !game_state.is_active {
-                    game_state.is_active = true;
+
+                // 最初のマスから連鎖的にマスを開く(地雷でないことは，配置によって保証済み)
+                board.open_chain(event.x, event.y);
+
+                // 状態をGameState::InGameに遷移
+                next_game_state.set(GameState::InGame);
+
+                // 万一全てのEmptyマスが開いた時に備え，ゲームクリアのチェック
+                if board.is_cleared() {
+                    next_game_state.set(GameState::GameClear);
                 }
             }
-
-            // タイルを開き、開けたなら次へ
-            if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
-                // TODO ゲームオーバー処理
-            } else {
-                board.open_chain(event.x, event.y);
+        }
+        GameState::InGame => {
+            // ボタンによって分岐
+            match event.button {
+                input::ClickButton::Left => {
+                    // 旗が立っているならスキップ
+                    if board.get_tile(event.x, event.y).appearance == TileAppearance::Flagged {
+                        return;
+                    }
+                    // タイルが地雷ならゲームオーバーに，地雷でないなら連鎖的に開く
+                    if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
+                        // ゲームオーバー状態に遷移
+                        next_game_state.set(GameState::GameOver);
+                    } else {
+                        board.open_chain(event.x, event.y);
+                        if board.is_cleared() {
+                            next_game_state.set(GameState::GameClear);
+                        }
+                    }
+                }
+                input::ClickButton::Right => {
+                    // 旗をトグルする
+                    board.toggle_flag(event.x, event.y);
+                }
+                input::ClickButton::Middle => {
+                    if board.handle_middle_click(event.x, event.y) {
+                        next_game_state.set(GameState::GameOver);
+                    } else if board.is_cleared() {
+                        next_game_state.set(GameState::GameClear);
+                    }
+                }
             }
         }
-        input::ClickButton::Right => {
-            // 生成前ならスキップ
-            if !board.is_generated {
-                return;
-            }
-
-            // 開いていないなら、旗をトグルする
-            board.toggle_flag(event.x, event.y);
-        }
-        input::ClickButton::Middle => {
-            // 生成前ならスキップ
-            if !board.is_generated {
-                return;
-            }
-
-            board.handle_middle_click(event.x, event.y);
-        }
+        _ => {}
     }
 }
 
 // 盤面をリセット
-fn reset_board_state(_: On<ResetBoardEvent>, mut commands: Commands) {
-    // 盤面を上書き
+fn reset_board(mut commands: Commands) {
+    // 盤面をリセット
     commands.insert_resource(Board::empty());
-    // ゲーム状態をリセット
-    commands.insert_resource(GameState::default());
 }
 
-// ストップウォッチのリソースを登録
-fn insert_stopwatch(mut commands: Commands) {
-    commands.insert_resource(GameState::default());
+// ゲームリソースをリセット
+fn reset_game_resources(mut commands: Commands) {
+    commands.insert_resource(GameResources::default());
 }
 
 // ストップウォッチを更新
-fn update_stopwatch(mut game_state: ResMut<GameState>, time: Res<Time>) {
-    if game_state.is_active {
-        game_state.time += time.delta_secs();
-    }
+fn update_stopwatch(mut game_resources: ResMut<GameResources>, time: Res<Time>) {
+    game_resources.time += time.delta_secs();
 }
