@@ -233,7 +233,7 @@ impl Board {
         }
     }
 
-    // 盤面上の爆弾を全て開く
+    // 盤面上の地雷を全て開く
     pub fn reveal_all_mines(&mut self) {
         self.tiles
             .iter_mut()
@@ -365,7 +365,7 @@ fn process_tile_clicked(
                 // 地雷を配置
                 board.place_mines(event.x, event.y);
 
-                // 最初のマスから連鎖的にマスを開く(爆弾でないことは，配置によって保証済み)
+                // 最初のマスから連鎖的にマスを開く(地雷でないことは，配置によって保証済み)
                 board.open_chain(event.x, event.y);
 
                 // 状態をGameState::InGameに遷移
@@ -385,7 +385,7 @@ fn process_tile_clicked(
                     if board.get_tile(event.x, event.y).appearance == TileAppearance::Flagged {
                         return;
                     }
-                    // タイルが爆弾ならゲームオーバーに，爆弾でないなら連鎖的に開く
+                    // タイルが地雷ならゲームオーバーに，地雷でないなら連鎖的に開く
                     if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
                         // ゲームオーバー状態に遷移
                         next_game_state.set(GameState::GameOver);

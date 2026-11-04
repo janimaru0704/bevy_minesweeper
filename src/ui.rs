@@ -178,7 +178,7 @@ fn handle_game_over(
         color.0 = Color::from(tailwind::RED_600);
     }
 
-    // 爆弾のマスを全て開く
+    // 地雷のマスを全て開く
     board.reveal_all_mines();
 }
 
