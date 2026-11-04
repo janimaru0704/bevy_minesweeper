@@ -288,18 +288,9 @@ impl Board {
 
     // 盤面上の爆弾を全て開く
     pub fn reveal_all_mines(&mut self) {
-        let mut mines = vec![];
-        for y in 0..constants::TILE_ROWS {
-            for x in 0..constants::TILE_COLUMNS {
-                if self.get_tile(x, y).tile_type == TileType::Mine {
-                    mines.push((x, y));
-                }
-            }
-        }
-
-        for (x, y) in mines {
-            self.get_tile_mut(x, y).appearance = TileAppearance::Revealed;
-        }
+        self.tiles.iter_mut()
+            .filter(|tile| tile.tile_type == TileType::Mine)
+            .for_each(|tile| tile.appearance = TileAppearance::Revealed);
     }
 }
 
