@@ -381,6 +381,10 @@ fn process_tile_clicked(
             // ボタンによって分岐
             match event.button {
                 input::ClickButton::Left => {
+                    // 旗が立っているならスキップ
+                    if board.get_tile(event.x, event.y).appearance == TileAppearance::Flagged {
+                        return;
+                    }
                     // タイルが爆弾ならゲームオーバーに，爆弾でないなら連鎖的に開く
                     if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
                         // ゲームオーバー状態に遷移
