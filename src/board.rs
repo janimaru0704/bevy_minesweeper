@@ -70,14 +70,12 @@ pub struct TileState {
 #[derive(Resource)]
 pub struct Board {
     pub tiles: Vec<TileState>,
-    is_generated: bool,
 }
 
 impl Board {
     fn empty() -> Self {
         Board {
             tiles: vec![TileState::default(); constants::TILE_COLUMNS * constants::TILE_ROWS],
-            is_generated: false,
         }
     }
 }
@@ -244,9 +242,6 @@ impl Board {
 
         // 地雷数を計算
         self.calc_mine_numbers();
-
-        // 生成済み状態にする
-        self.is_generated = true;
     }
 
     // 地雷数を計算して、Emptyマスの値に格納
@@ -414,7 +409,7 @@ fn process_tile_clicked(
     match *game_state.get() {
         GameState::PreGame => {
             // 盤面未生成ならば，左クリックで生成
-            if !board.is_generated && event.button == input::ClickButton::Left {
+            if event.button == input::ClickButton::Left {
                 // 地雷を配置
                 board.place_mines(event.x, event.y);
 
@@ -428,27 +423,24 @@ fn process_tile_clicked(
         GameState::InGame => {
             // 爆弾を踏んだかどうか
             let mut is_mine_opened = false;
-            // ボードが生成されていることを前提とする
-            if board.is_generated {
-                // ボタンによって分岐
-                match event.button {
-                    input::ClickButton::Left => {
-                        // タイルが爆弾ならゲームオーバーに，爆弾でないなら連鎖的に開く
-                        if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
-                            // ゲームオーバー状態に遷移
-                            next_game_state.set(GameState::GameOver);
-                            is_mine_opened = true;
-                        } else {
-                            board.open_chain(event.x, event.y);
-                        }
+            // ボタンによって分岐
+            match event.button {
+                input::ClickButton::Left => {
+                    // タイルが爆弾ならゲームオーバーに，爆弾でないなら連鎖的に開く
+                    if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
+                        // ゲームオーバー状態に遷移
+                        next_game_state.set(GameState::GameOver);
+                        is_mine_opened = true;
+                    } else {
+                        board.open_chain(event.x, event.y);
                     }
-                    input::ClickButton::Right => {
-                        // 旗をトグルする
-                        board.toggle_flag(event.x, event.y);
-                    }
-                    input::ClickButton::Middle => {
-                        board.handle_middle_click(event.x, event.y, &mut next_game_state, &mut is_mine_opened);
-                    }
+                }
+                input::ClickButton::Right => {
+                    // 旗をトグルする
+                    board.toggle_flag(event.x, event.y);
+                }
+                input::ClickButton::Middle => {
+                    board.handle_middle_click(event.x, event.y, &mut next_game_state, &mut is_mine_opened);
                 }
             }
 
