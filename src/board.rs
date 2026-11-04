@@ -1,6 +1,6 @@
-use std::collections::HashSet;
 use bevy::{color::palettes::tailwind, prelude::*};
 use rand::seq::SliceRandom;
+use std::collections::HashSet;
 
 use crate::{GameState, constants, input, ui};
 
@@ -20,10 +20,7 @@ impl Plugin for BoardPlugin {
                     update_stopwatch.run_if(in_state(GameState::InGame)),
                 ),
             )
-            .add_observer(
-                process_tile_clicked
-                    .run_if(in_state(GameState::PreGame).or_else(in_state(GameState::InGame))),
-            );
+            .add_observer(process_tile_clicked);
     }
 }
 
@@ -103,7 +100,7 @@ impl Board {
                 let ny = y as i32 + dy;
                 ((0..constants::TILE_COLUMNS as i32).contains(&nx)
                     && (0..constants::TILE_ROWS as i32).contains(&ny))
-                    .then_some((nx as usize, ny as usize))
+                .then_some((nx as usize, ny as usize))
             })
     }
 
@@ -145,18 +142,13 @@ impl Board {
 
             // このタイルが周囲に地雷がない空白なら周囲をスタックに追加
             if tile.tile_type == TileType::Empty(0) {
-                Self::neighbors(x, y)
-                    .for_each(|(nx, ny)| stack.push((nx, ny)));
+                stack.extend(Self::neighbors(x, y));
             }
         }
     }
 
     // ミドルクリックの処理
-    fn handle_middle_click(
-        &mut self,
-        x: usize,
-        y: usize,
-    ) -> bool {
+    fn handle_middle_click(&mut self, x: usize, y: usize) -> bool {
         let tile = self.get_tile(x, y);
 
         // 開いている数字タイル以外は何もしない
@@ -205,7 +197,7 @@ impl Board {
 
         // クリックされた周囲3x3マスを除く全ての座標のリストを作成
         let mut candidates: Vec<_> = (0..constants::TILE_ROWS)
-            .flat_map(move |dy| (0..constants::TILE_COLUMNS).map(move |dx| (dx, dy)))
+            .flat_map(move |y| (0..constants::TILE_COLUMNS).map(move |x| (x, y)))
             .filter(|pos| !remove_set.contains(pos))
             .collect();
 
@@ -243,14 +235,16 @@ impl Board {
 
     // 盤面上の爆弾を全て開く
     pub fn reveal_all_mines(&mut self) {
-        self.tiles.iter_mut()
+        self.tiles
+            .iter_mut()
             .filter(|tile| tile.tile_type == TileType::Mine)
             .for_each(|tile| tile.appearance = TileAppearance::Revealed);
     }
 
     // 全てのEmptyマスが開かれたかを確認
     fn is_cleared(&self) -> bool {
-        self.tiles.iter()
+        self.tiles
+            .iter()
             .filter(|tile| tile.appearance == TileAppearance::Revealed)
             .count()
             == self.tiles.len() - constants::MINE_COUNT
@@ -366,7 +360,7 @@ fn process_tile_clicked(
     // GameStateによって分岐
     match *game_state.get() {
         GameState::PreGame => {
-            // 盤面未生成ならば，左クリックで生成
+            // 左クリックで盤面を生成
             if event.button == input::ClickButton::Left {
                 // 地雷を配置
                 board.place_mines(event.x, event.y);
@@ -376,10 +370,14 @@ fn process_tile_clicked(
 
                 // 状態をGameState::InGameに遷移
                 next_game_state.set(GameState::InGame);
+
+                // 万一全てのEmptyマスが開いた時に備え，ゲームクリアのチェック
+                if board.is_cleared() {
+                    next_game_state.set(GameState::GameClear);
+                }
             }
         }
         GameState::InGame => {
-            // 爆弾を踏んだかどうか
             // ボタンによって分岐
             match event.button {
                 input::ClickButton::Left => {

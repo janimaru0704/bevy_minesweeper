@@ -59,20 +59,19 @@ fn spawn_node(mut commands: Commands, font: Res<FontHandle>) {
         weight: FontWeight::BOLD,
         ..default()
     };
-    commands.spawn(
-        (
-            UINode,
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(0.0),
-                width: Val::Px(constants::UI_W),
-                height: Val::Px(constants::UI_H),
-                justify_content: JustifyContent::SpaceBetween,
-                align_items: AlignItems::Center,
-                padding: UiRect::horizontal(Val::Px(constants::UI_PADDING_H)),
-                ..default()
-            },
-            children![
+    commands.spawn((
+        UINode,
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(0.0),
+            width: Val::Px(constants::UI_W),
+            height: Val::Px(constants::UI_H),
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::Center,
+            padding: UiRect::horizontal(Val::Px(constants::UI_PADDING_H)),
+            ..default()
+        },
+        children![
                 (
                     StopwatchText,
                     Text::new("000"),
@@ -126,8 +125,7 @@ fn spawn_node(mut commands: Commands, font: Res<FontHandle>) {
                     TextColor(Color::from(tailwind::RED_600)),
                 )
             ],
-        ),
-    );
+    ));
 }
 
 // 地雷カウンターの更新
