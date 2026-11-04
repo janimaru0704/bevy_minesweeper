@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use bevy::{color::palettes::tailwind, prelude::*};
 use rand::seq::SliceRandom;
 
@@ -87,8 +88,23 @@ pub struct GameResources {
 }
 
 impl Board {
+    // 座標からtilesのindexに変換
     fn get_index(x: usize, y: usize) -> usize {
         y * constants::TILE_COLUMNS + x
+    }
+
+    // (x, y)のマスの周囲8マスの座標を返すイテレータ
+    fn neighbors(x: usize, y: usize) -> impl Iterator<Item = (usize, usize)> {
+        (-1i32..=1)
+            .flat_map(move |dy| (-1i32..=1).map(move |dx| (dx, dy)))
+            .filter(|&(dx, dy)| (dx, dy) != (0, 0))
+            .filter_map(move |(dx, dy)| {
+                let nx = x as i32 + dx;
+                let ny = y as i32 + dy;
+                ((0..constants::TILE_COLUMNS as i32).contains(&nx)
+                    && (0..constants::TILE_ROWS as i32).contains(&ny))
+                    .then_some((nx as usize, ny as usize))
+            })
     }
 
     // タイルの情報を取得
@@ -129,25 +145,8 @@ impl Board {
 
             // このタイルが周囲に地雷がない空白なら周囲をスタックに追加
             if tile.tile_type == TileType::Empty(0) {
-                for dy in -1..=1 {
-                    for dx in -1..=1 {
-                        if dx == 0 && dy == 0 {
-                            continue;
-                        }
-
-                        let nx = x as i32 + dx;
-                        let ny = y as i32 + dy;
-
-                        // 範囲内かチェック
-                        if 0 <= nx
-                            && nx < constants::TILE_COLUMNS as i32
-                            && 0 <= ny
-                            && ny < constants::TILE_ROWS as i32
-                        {
-                            stack.push((nx as usize, ny as usize));
-                        }
-                    }
-                }
+                Self::neighbors(x, y)
+                    .for_each(|(nx, ny)| stack.push((nx, ny)));
             }
         }
     }
@@ -157,82 +156,60 @@ impl Board {
         &mut self,
         x: usize,
         y: usize,
-        next_game_state: &mut ResMut<NextState<GameState>>,
-        is_mine_opened: &mut bool,
-    ) {
+    ) -> bool {
         let tile = self.get_tile(x, y);
 
-        // 空いている数字タイル以外は何もしない
+        // 開いている数字タイル以外は何もしない
         if tile.appearance != TileAppearance::Revealed {
-            return;
+            return false;
         }
-        if let TileType::Empty(target_num) = tile.tile_type {
-            // 数字が0なら何もしない
-            if target_num == 0 {
-                return;
-            }
-
-            // 周囲の旗をカウント
-            let mut flag_count = 0;
-            let mut hidden_neighbors = Vec::new();
-            for dy in -1..=1 {
-                for dx in -1..=1 {
-                    if dx == 0 && dy == 0 {
-                        continue;
-                    }
-                    let nx = x as i32 + dx;
-                    let ny = y as i32 + dy;
-
-                    // 範囲内かチェック
-                    if 0 <= nx
-                        && nx < constants::TILE_COLUMNS as i32
-                        && 0 <= ny
-                        && ny < constants::TILE_ROWS as i32
-                    {
-                        let n_tile = self.get_tile(nx as usize, ny as usize);
-
-                        if n_tile.appearance == TileAppearance::Flagged {
-                            flag_count += 1;
-                        } else if n_tile.appearance == TileAppearance::Hidden {
-                            hidden_neighbors.push((nx as usize, ny as usize));
-                        }
-                    }
-                }
-            }
-
-            // 旗の数が数字と一致していたら、残りを全部開く
-            if flag_count == target_num {
-                for (nx, ny) in hidden_neighbors {
-                    if self.get_tile(nx, ny).tile_type == TileType::Mine {
-                        // ゲームオーバー状態に遷移
-                        next_game_state.set(GameState::GameOver);
-                        *is_mine_opened = true;
-                    } else {
-                        self.open_chain(nx, ny);
-                    }
-                }
-            }
+        let TileType::Empty(target_num) = tile.tile_type else {
+            return false;
+        };
+        if target_num == 0 {
+            return false;
         }
+
+        // 周囲の旗の数が数字と一致している時だけ処理する
+        let flag_count = Self::neighbors(x, y)
+            .filter(|&(nx, ny)| self.get_tile(nx, ny).appearance == TileAppearance::Flagged)
+            .count();
+        if flag_count != target_num as usize {
+            return false;
+        }
+
+        // 周囲の隠れているマスを集めてから開く
+        let hidden = Self::neighbors(x, y)
+            .filter(|&(nx, ny)| self.get_tile(nx, ny).appearance == TileAppearance::Hidden)
+            .collect::<Vec<_>>();
+
+        for (nx, ny) in hidden {
+            if self.get_tile(nx, ny).tile_type == TileType::Mine {
+                // 旗の位置が間違っていた。ゲームオーバーなのでtrueを返して抜ける
+                return true;
+            }
+            self.open_chain(nx, ny);
+        }
+
+        false
     }
 
     // 地雷を指定された座標周辺を避けてランダムに配置
     fn place_mines(&mut self, click_x: usize, click_y: usize) {
         let mut rng = rand::rng();
 
-        // 全インデックスのリストを作成し、シャッフルする
-        let mut candidates = Vec::new();
+        // クリックされた周囲3x3マスは候補から除く
+        let remove_set: HashSet<_> = Self::neighbors(click_x, click_y)
+            .chain(std::iter::once((click_x, click_y)))
+            .collect();
 
-        for y in 0..constants::TILE_ROWS {
-            for x in 0..constants::TILE_COLUMNS {
-                // クリック位置を中心として3x3の範囲は除外
-                if !((x as i32 - click_x as i32).abs() <= 1
-                    && (y as i32 - click_y as i32).abs() <= 1)
-                {
-                    candidates.push((x, y));
-                }
-            }
-        }
+        // クリックされた周囲3x3マスを除く全ての座標のリストを作成
+        let mut candidates: Vec<_> = (0..constants::TILE_ROWS)
+            .flat_map(move |dy| (0..constants::TILE_COLUMNS).map(move |dx| (dx, dy)))
+            .filter(|pos| !remove_set.contains(pos))
+            .collect();
 
+        // シャッフル
         candidates.shuffle(&mut rng);
 
         // シャッフルされた先頭から個数分取り出してそのインデックスに地雷を置く
@@ -240,7 +217,7 @@ impl Board {
             self.get_tile_mut(x, y).tile_type = TileType::Mine;
         }
 
-        // 地雷数を計算
+        // 各マスの周囲の地雷数を計算
         self.calc_mine_numbers();
     }
 
@@ -254,31 +231,12 @@ impl Board {
                 }
 
                 // 周囲の数を確認
-                let mut count = 0;
-                for dy in -1..=1 {
-                    for dx in -1..=1 {
-                        // 自分自身はスキップ
-                        if dx == 0 && dy == 0 {
-                            continue;
-                        }
+                let count = Self::neighbors(x, y)
+                    .filter(|&(nx, ny)| self.get_tile(nx, ny).tile_type == TileType::Mine)
+                    .count();
 
-                        // 確認先の座標を取得
-                        let nx = x as i32 + dx;
-                        let ny = y as i32 + dy;
-
-                        // 範囲内であるか確認
-                        if 0 <= nx
-                            && nx < constants::TILE_COLUMNS as i32
-                            && 0 <= ny
-                            && ny < constants::TILE_ROWS as i32
-                            && self.get_tile(nx as usize, ny as usize).tile_type == TileType::Mine
-                        {
-                            count += 1;
-                        }
-                    }
-                }
                 // 計算した値をセット
-                self.get_tile_mut(x, y).tile_type = TileType::Empty(count);
+                self.get_tile_mut(x, y).tile_type = TileType::Empty(count as u8);
             }
         }
     }
@@ -422,7 +380,6 @@ fn process_tile_clicked(
         }
         GameState::InGame => {
             // 爆弾を踏んだかどうか
-            let mut is_mine_opened = false;
             // ボタンによって分岐
             match event.button {
                 input::ClickButton::Left => {
@@ -430,9 +387,11 @@ fn process_tile_clicked(
                     if board.get_tile(event.x, event.y).tile_type == TileType::Mine {
                         // ゲームオーバー状態に遷移
                         next_game_state.set(GameState::GameOver);
-                        is_mine_opened = true;
                     } else {
                         board.open_chain(event.x, event.y);
+                        if board.is_cleared() {
+                            next_game_state.set(GameState::GameClear);
+                        }
                     }
                 }
                 input::ClickButton::Right => {
@@ -440,13 +399,12 @@ fn process_tile_clicked(
                     board.toggle_flag(event.x, event.y);
                 }
                 input::ClickButton::Middle => {
-                    board.handle_middle_click(event.x, event.y, &mut next_game_state, &mut is_mine_opened);
+                    if board.handle_middle_click(event.x, event.y) {
+                        next_game_state.set(GameState::GameOver);
+                    } else if board.is_cleared() {
+                        next_game_state.set(GameState::GameClear);
+                    }
                 }
-            }
-
-            // Emptyマスが必要数開かれて，かつ爆弾を踏まなかったなら，GameState::GameClearに遷移
-            if board.is_cleared() && !is_mine_opened {
-                next_game_state.set(GameState::GameClear);
             }
         }
         _ => {}
