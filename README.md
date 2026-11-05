@@ -37,7 +37,7 @@ cargo run --release
 ### 補足
 
 - `Cargo.toml`では，開発時のコンパイル時間を短縮するため Bevy の `dynamic_linking` を有効にしています。実行ファイルを配布する場合は，この feature を外してビルドしてください。
-- Windows では `.carg/config.toml` で `rust-lld.exe` をリンカに指定しています。
+- Windows では `.cargo/config.toml` で `rust-lld.exe` をリンカに指定しています。
 
 ## 使用ライブラリ
 
