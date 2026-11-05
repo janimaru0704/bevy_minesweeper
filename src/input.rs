@@ -1,7 +1,10 @@
+//! 入力処理を担うモジュール
+
 use bevy::{prelude::*, window::PrimaryWindow};
 
 use crate::{GameState, constants};
 
+/// 入力処理を担うプラグイン
 pub struct InputPlugin;
 
 impl Plugin for InputPlugin {
@@ -10,23 +13,29 @@ impl Plugin for InputPlugin {
     }
 }
 
-// 右クリックか左クリックか中クリックかの内容
+/// クリックの種類
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ClickButton {
+    /// 左クリック
     Left,
+    /// 右クリック
     Right,
+    /// 中クリック
     Middle,
 }
 
-// マウスの入力をboardに伝えるイベント
-// タイルのインデックスと右or左クリックかの情報を持つ
+/// マウスの入力をboardに伝えるイベント
 #[derive(Event, Debug)]
 pub struct TileClickEvent {
+    /// クリックされたタイルのx座標
     pub x: usize,
+    /// クリックされたタイルのy座標
     pub y: usize,
+    /// クリックの種類
     pub button: ClickButton,
 }
 
+/// マウス入力を管理
 fn mouse_input(
     mut commands: Commands,
     mouse_input: Res<ButtonInput<MouseButton>>,

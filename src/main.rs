@@ -5,20 +5,20 @@ mod constants;
 mod input;
 mod ui;
 
-// ゲームの状態を管理する列挙型
+/// ゲームの状態を管理する列挙型
 #[derive(States, Clone, Copy, Eq, PartialEq, Hash, Debug, Default)]
 pub enum GameState {
-    // ゲーム開始前。タイマーは停止，地雷設置前。最初のマスが開かれたらInGameに移動
+    /// ゲーム開始前。タイマーは停止，地雷設置前。最初のマスが開かれたらInGameに移動
     #[default]
     PreGame,
 
-    // ゲーム中。タイマーカウント。地雷のないマスを全て開けたらGameClearに，地雷を踏んだらGameOverに移動
+    /// ゲーム中。タイマーカウント。地雷のないマスを全て開けたらGameClearに，地雷を踏んだらGameOverに移動
     InGame,
 
-    // 地雷のない全てのマスをプレイヤーが開いた後のクリア画面。タイマーは動かず，リセットボタン以外の操作を受け付けない。リセットボタンを押したらPreGameへ
+    /// 地雷のない全てのマスをプレイヤーが開いた後のクリア画面。タイマーは動かず，リセットボタン以外の操作を受け付けない。リセットボタンを押したらPreGameへ
     GameClear,
 
-    // 地雷を踏んでゲームオーバーになった状態。地雷のマスが全て表示され，安全なのに旗が立っているマスは強調表示(未完成)。タイマー以下はGameClear画面と同じ
+    /// 地雷を踏んでゲームオーバーになった状態。地雷のマスが全て表示され，安全なのに旗が立っているマスは強調表示(未完成)。タイマー以下はGameClear画面と同じ
     GameOver,
 }
 
@@ -42,7 +42,7 @@ fn main() {
         .run();
 }
 
-// 初期化
+/// 初期化
 fn setup(mut commands: Commands, mut clear_color: ResMut<ClearColor>) {
     // 背景色を黒色に
     clear_color.0 = Color::BLACK;
