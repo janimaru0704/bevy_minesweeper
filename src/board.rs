@@ -1,9 +1,12 @@
+//! 盤面のロジックと描画処理のモジュール
+
 use bevy::{color::palettes::tailwind, prelude::*};
 use rand::seq::SliceRandom;
 use std::collections::HashSet;
 
 use crate::{GameState, constants, input, ui};
 
+/// ゲーム盤面に関する処理を担うプラグイン
 pub struct BoardPlugin;
 
 impl Plugin for BoardPlugin {
@@ -24,21 +27,23 @@ impl Plugin for BoardPlugin {
     }
 }
 
-// タイルのコンポーネント. 左下からの座標を持つ
+/// タイルのコンポーネント。左下からの座標を持つ
 #[derive(Component)]
 struct Tile {
     x: usize,
     y: usize,
 }
 
-// タイル用テキストのマーカー
+/// タイル用テキストのマーカー
 #[derive(Component)]
 struct TileText;
 
-// タイルの種類
+/// タイルの種類
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum TileType {
+    /// 空のタイル。数字は周囲の地雷の数
     Empty(u8),
+    /// 地雷のタイル
     Mine,
 }
 
@@ -48,25 +53,31 @@ impl Default for TileType {
     }
 }
 
-// タイルの見た目 (隠れている/開いている/旗が立っている)
+/// タイルの見た目
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub enum TileAppearance {
+    /// 隠れているタイル
     #[default]
     Hidden,
+    /// 開かれている
     Revealed,
+    /// 旗が立てられているタイル
     Flagged,
 }
 
-// 1つのタイルの状態を格納する構造体
+/// 1つのタイルの状態を格納する構造体
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub struct TileState {
+    /// タイルの中身
     tile_type: TileType,
+    /// タイルの見た目
     pub appearance: TileAppearance,
 }
 
-// 盤面の状態を管理するリソース
+/// 盤面の状態を管理するリソース
 #[derive(Resource)]
 pub struct Board {
+    /// タイルを1次元配列で格納。
     pub tiles: Vec<TileState>,
 }
 
@@ -78,19 +89,20 @@ impl Board {
     }
 }
 
-// ストップウォッチやその他ゲーム情報を管理するリソース
+/// ストップウォッチやその他ゲーム情報を管理するリソース
 #[derive(Resource, Default)]
 pub struct GameResources {
+    /// ストップウォッチの時間
     pub time: f32,
 }
 
 impl Board {
-    // 座標からtilesのindexに変換
+    /// 座標からtilesのindexに変換
     fn get_index(x: usize, y: usize) -> usize {
         y * constants::TILE_COLUMNS + x
     }
 
-    // (x, y)のマスの周囲8マスの座標を返すイテレータ
+    /// (x, y)のマスの周囲8マスの座標を返すイテレータ
     fn neighbors(x: usize, y: usize) -> impl Iterator<Item = (usize, usize)> {
         (-1i32..=1)
             .flat_map(move |dy| (-1i32..=1).map(move |dx| (dx, dy)))
@@ -104,17 +116,21 @@ impl Board {
             })
     }
 
-    // タイルの情報を取得
+    /// タイルの情報を不変参照で取得
+    /// # Panics
+    /// 範囲外の座標を指定するとパニックします。
     fn get_tile(&self, x: usize, y: usize) -> &TileState {
         &self.tiles[Self::get_index(x, y)]
     }
 
-    // タイルの情報を取得(可変参照)
+    /// タイルの情報を可変参照で取得
+    /// # Panics
+    /// 範囲外の座標を指定するとパニックします。
     fn get_tile_mut(&mut self, x: usize, y: usize) -> &mut TileState {
         &mut self.tiles[Self::get_index(x, y)]
     }
 
-    // Revealedでないなら旗をトグルする
+    /// タイルがRevealedでないなら旗をトグルする
     fn toggle_flag(&mut self, x: usize, y: usize) {
         let tile = self.get_tile_mut(x, y);
         tile.appearance = match tile.appearance {
@@ -124,7 +140,7 @@ impl Board {
         };
     }
 
-    // 連鎖して開く
+    /// 与えられた座標から空のタイルを連鎖して開く
     fn open_chain(&mut self, start_x: usize, start_y: usize) {
         // 確認すべき座標を格納
         let mut stack = vec![(start_x, start_y)];
@@ -147,7 +163,9 @@ impl Board {
         }
     }
 
-    // ミドルクリックの処理
+    /// ミドルクリックの処理
+    /// クリックされた空のマスの数字と，周囲の旗の数が一致している時に
+    /// 周囲の旗の立てられていないマスを開きます。
     fn handle_middle_click(&mut self, x: usize, y: usize) -> bool {
         let tile = self.get_tile(x, y);
 
@@ -186,7 +204,7 @@ impl Board {
         false
     }
 
-    // 地雷を指定された座標周辺を避けてランダムに配置
+    /// 地雷を指定された座標周辺を避けてランダムに配置
     fn place_mines(&mut self, click_x: usize, click_y: usize) {
         let mut rng = rand::rng();
 
@@ -213,7 +231,7 @@ impl Board {
         self.calc_mine_numbers();
     }
 
-    // 地雷数を計算して、Emptyマスの値に格納
+    /// 各タイルの周囲の地雷数を計算して、Emptyマスの値に格納
     fn calc_mine_numbers(&mut self) {
         for y in 0..constants::TILE_ROWS {
             for x in 0..constants::TILE_COLUMNS {
@@ -233,7 +251,7 @@ impl Board {
         }
     }
 
-    // 盤面上の地雷を全て開く
+    /// 盤面上の地雷を全て開く
     pub fn reveal_all_mines(&mut self) {
         self.tiles
             .iter_mut()
@@ -241,7 +259,7 @@ impl Board {
             .for_each(|tile| tile.appearance = TileAppearance::Revealed);
     }
 
-    // 全てのEmptyマスが開かれたかを確認
+    /// 全てのEmptyマスが開かれたか(ゲームクリアか)を確認
     fn is_cleared(&self) -> bool {
         self.tiles
             .iter()
@@ -251,7 +269,7 @@ impl Board {
     }
 }
 
-// 盤面を敷く
+/// 盤面を表示するスプライトを生成
 fn spawn_board(mut commands: Commands, font: Res<ui::FontHandle>) {
     // 起点となる左下の座標
     let offset_x = -constants::BOARD_W / 2.0 + (constants::TILE_SIZE / 2.0);
@@ -291,7 +309,7 @@ fn spawn_board(mut commands: Commands, font: Res<ui::FontHandle>) {
     }
 }
 
-// ボードの見た目の更新
+/// ボードのスプライトの更新
 fn update_board_visual(
     board: Res<Board>,
     mut tile_query: Query<(&Tile, &mut Sprite, &Children)>,
@@ -350,7 +368,7 @@ fn update_board_visual(
     }
 }
 
-// 入力を受け付けて、ボードを更新
+/// 入力を受け付けて、盤面を更新
 fn process_tile_clicked(
     event: On<input::TileClickEvent>,
     mut board: ResMut<Board>,
@@ -413,18 +431,18 @@ fn process_tile_clicked(
     }
 }
 
-// 盤面をリセット
+/// 盤面をリセット
 fn reset_board(mut commands: Commands) {
     // 盤面をリセット
     commands.insert_resource(Board::empty());
 }
 
-// ゲームリソースをリセット
+/// ゲームリソースをリセット
 fn reset_game_resources(mut commands: Commands) {
     commands.insert_resource(GameResources::default());
 }
 
-// ストップウォッチを更新
+/// ストップウォッチを更新
 fn update_stopwatch(mut game_resources: ResMut<GameResources>, time: Res<Time>) {
     game_resources.time += time.delta_secs();
 }

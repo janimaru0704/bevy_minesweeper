@@ -1,7 +1,10 @@
+//! 画面上部のUIの処理を担うモジュール
+
 use crate::{GameState, board, constants};
 use bevy::ui_widgets::{Activate, Button, observe};
 use bevy::{color::palettes::tailwind, prelude::*};
 
+/// 画面上部のUIの処理を担うプラグイン
 pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
@@ -13,32 +16,33 @@ impl Plugin for UIPlugin {
     }
 }
 
-// 画面ノードのマーカー
+/// 画面ノードのマーカー
 #[derive(Component)]
 struct UINode;
 
-// ストップウォッチのマーカー
+/// ストップウォッチのマーカー
 #[derive(Component)]
 struct StopwatchText;
 
-// 残り地雷数表示のマーカー
+/// 残り地雷数表示のマーカー
 #[derive(Component)]
 struct MineCounterText;
 
-// リセットボタンとそのテキストのマーカー
+/// リセットボタンのマーカー
 #[derive(Component)]
 struct ResetButton;
+/// リセットボタンのテキストのマーカー
 #[derive(Component)]
 struct ResetButtonText;
 
-// フォントのリソース
+/// フォントのリソース
 #[derive(Resource)]
 pub struct FontHandle {
     pub noto_sans: Handle<Font>,
     pub dseg7: Handle<Font>,
 }
 
-// フォントの読み込み
+/// フォントの読み込み
 fn load_font(mut commands: Commands, assets: Res<AssetServer>) {
     commands.insert_resource(FontHandle {
         noto_sans: assets.load("NotoSansJP-VariableFont_wght.ttf"),
@@ -46,7 +50,7 @@ fn load_font(mut commands: Commands, assets: Res<AssetServer>) {
     });
 }
 
-// UIノードの配置
+/// UIノードの配置
 fn spawn_node(mut commands: Commands, font: Res<FontHandle>) {
     let counter_font = TextFont {
         font: FontSource::Handle(font.dseg7.clone()),
@@ -128,7 +132,7 @@ fn spawn_node(mut commands: Commands, font: Res<FontHandle>) {
     ));
 }
 
-// 地雷カウンターの更新
+/// 地雷カウンターの更新
 fn update_mine_counter(
     board: Res<board::Board>,
     mut text: Query<&mut Text, With<MineCounterText>>,
@@ -152,7 +156,7 @@ fn update_mine_counter(
     }
 }
 
-// ストップウォッチの更新
+/// ストップウォッチの更新
 fn update_stopwatch(
     game_state: Res<board::GameResources>,
     mut text: Query<&mut Text, With<StopwatchText>>,
@@ -168,6 +172,7 @@ fn update_stopwatch(
     }
 }
 
+/// ゲームオーバーになった時の処理
 fn handle_game_over(
     mut query: Query<(&mut Text, &mut TextColor), With<ResetButtonText>>,
     mut board: ResMut<board::Board>,
@@ -182,6 +187,7 @@ fn handle_game_over(
     board.reveal_all_mines();
 }
 
+/// ゲームをクリアした時の処理
 fn handle_game_clear(mut query: Query<(&mut Text, &mut TextColor), With<ResetButtonText>>) {
     // テキスト更新
     if let Ok((mut text, mut color)) = query.single_mut() {
