@@ -350,7 +350,7 @@ fn update_board_visual(
                                 1 => Color::from(tailwind::BLUE_500),
                                 2 => Color::from(tailwind::GREEN_500),
                                 3 => Color::from(tailwind::RED_500),
-                                4 => Color::from(tailwind::INDIGO_500),
+                                4 => Color::from(tailwind::INDIGO_400),
                                 5 => Color::from(tailwind::PINK_400),
                                 6 => Color::from(tailwind::TEAL_400),
                                 7 => Color::from(tailwind::PURPLE_500),
